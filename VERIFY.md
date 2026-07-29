@@ -23,3 +23,23 @@ pnpm start
       whatever is underneath the transparent window. Over the pet, a click
       makes it wave; right-click opens a menu.
 - [ ] The 🐾 tray icon shows and Quit works.
+
+## Stage 3 — agent connection
+
+```sh
+pnpm start                                        # terminal 1
+node packages/hooks/dist/installer.js install     # writes ~/.claude/settings.json (backs up first)
+claude                                            # terminal 2, any project
+```
+
+- [ ] While Claude works, the pet switches states: thinking on prompt submit,
+      running/editing per tool, a success jump on finish. (The event pipeline
+      itself is machine-verified — see D12 — this checks the *feel*.)
+- [ ] Ask Claude to run something not covered by your allow rules while you
+      watch: the pet enters `waiting` with a "Needs permission" bubble, and
+      the normal terminal prompt still appears (stage 3 answers "no decision";
+      pet-click approve/deny arrives in stage 6).
+- [ ] `node packages/hooks/dist/installer.js uninstall` removes exactly the
+      desktop-pets entries — diff settings.json against the printed backup.
+- [ ] MCP (optional): `claude mcp add desktop-pets -- node <repo>/packages/mcp/dist/bin.js`,
+      then ask Claude to use `pet_say` — bubble shows sanitised text.

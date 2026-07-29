@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -21,8 +22,17 @@ export function ipcInfoPath(env?: NodeJS.ProcessEnv): string {
   return path.join(dataDir(env), 'ipc.json');
 }
 
+/**
+ * macOS limits AF_UNIX socket paths to ~104 bytes (sun_path). When the data
+ * dir would blow that budget, fall back to a short, deterministic /tmp path
+ * keyed by the data dir. Clients never compute this themselves — they read
+ * the actual socket path from ipc.json.
+ */
 export function socketPath(env?: NodeJS.ProcessEnv): string {
-  return path.join(dataDir(env), 'pet.sock');
+  const preferred = path.join(dataDir(env), 'pet.sock');
+  if (preferred.length <= 90) return preferred;
+  const key = crypto.createHash('sha256').update(dataDir(env)).digest('hex').slice(0, 12);
+  return path.join('/tmp', `desktop-pets-${os.userInfo().uid}-${key}.sock`);
 }
 
 export function userPetsDir(env?: NodeJS.ProcessEnv): string {

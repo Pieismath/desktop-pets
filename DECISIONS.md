@@ -130,6 +130,44 @@ Caveat hit during setup: if the first install ran while a script was
 unapproved, later approval does **not** retro-run it; `node install.js` inside
 the electron package (or a pruned reinstall) is needed.
 
+### D11 — Sprite loop counts are for one-shot playback
+
+The locked table's finite loop counts (`working ×1`, `waiting ×1`, …) are the
+art's native loop lengths. A pet frozen on the last frame of `working` while
+the agent is still working would read as dead, so: **persistent statuses loop
+indefinitely; finite counts apply when a state plays as a one-shot reaction**
+(waving, jumping, error flash). `failed` holds its final slumped frame after
+its 2 loops (`after: 'hold'` in the spec). The table itself is unchanged.
+
+### D12 — E2E verification of the hook pipeline (and its limits)
+
+A fully-live `claude -p` test run was blocked: this build environment's org
+policy disables subscription auth for the standalone CLI
+("Your organization has disabled Claude subscription access for Claude
+Code"). Per the blocked protocol the pipeline was verified two ways instead:
+
+1. **Real Claude Code, failure path:** the failed `claude -p` launch still
+   fired hooks from `--settings` before dying — the host's event log recorded
+   `SessionStart → UserPromptSubmit → StopFailure(authentication_failed) →
+   SessionEnd` arriving through the real runner and socket. That proves
+   Claude Code spawns our runner from installed settings and the transport
+   works end to end.
+2. **Documented payloads, full lifecycle:** the actual runner binary was fed
+   the documented stdin JSON for SessionStart / UserPromptSubmit /
+   PreToolUse / PostToolUse / PermissionRequest / Stop / SessionEnd; all
+   arrived, decision events round-tripped (released as "no decision", i.e.
+   empty stdout, in stage 3), and the pet reacted on screen.
+
+What is *not* machine-verified: Claude Code consuming an `allow`/`deny` JSON
+we emit for `PermissionRequest` (schema matches the reference docs verbatim).
+VERIFY.md has the one-command live check to run on any normally-authenticated
+machine.
+
+Also fixed here: macOS caps `AF_UNIX` socket paths at ~104 bytes, so
+`socketPath()` falls back to a short deterministic `/tmp/desktop-pets-<uid>-<hash>.sock`
+when the data dir would exceed the budget (clients always read the actual
+path from `ipc.json`, so only the host computes it).
+
 ### D10 — Risk rules: precision over recall, with a safelist
 
 `rm -rf` must fire (brief §6), but `rm -rf node_modules` all day would kill

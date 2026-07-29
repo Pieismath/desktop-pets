@@ -6,6 +6,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "desktop-pets-hook": "./dist/hook-runner.js",
+    "desktop-pets-hooks": "./dist/installer.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

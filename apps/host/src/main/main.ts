@@ -1,8 +1,16 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { Menu, app, dialog } from 'electron';
-import type { PetAction } from '@desktop-pets/shared';
+import {
+  DEFAULT_REACTION_MAP,
+  sanitizeSpeech,
+} from '@desktop-pets/shared';
+import type { PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
+import { IpcServer } from './ipc-server.js';
 import { resolveActivePet } from './pets.js';
 import { PetWindow } from './petwindow.js';
+import type { AgentSession } from './sessions.js';
+import { SessionManager } from './sessions.js';
 import { runSmoke } from './smoke.js';
 import { StateStore } from './store.js';
 import { createTray } from './tray.js';
@@ -10,31 +18,23 @@ import { createTray } from './tray.js';
 const smokeMode = process.argv.includes('--smoke');
 const outArg = process.argv.find((a) => a.startsWith('--out='));
 const smokeOut = outArg ? outArg.slice('--out='.length) : path.join(process.cwd(), 'captures');
+const logArg = process.argv.find((a) => a.startsWith('--log-events='));
 
 if (!smokeMode && !app.requestSingleInstanceLock()) {
   app.quit();
 }
 
-function onPetAction(win: PetWindow, action: PetAction): void {
-  switch (action.type) {
-    case 'click':
-      win.playOneShot('waving');
-      break;
-    case 'dismiss-alarm':
-      win.setVM({ ...win.getVM(), alarm: false, bubble: undefined, spriteState: 'idle' });
-      break;
-    case 'button':
-      // Wired to real decisions in stage 3+.
-      console.log(`[pet] button pressed: ${action.id}`);
-      break;
-    case 'context-menu':
-      Menu.buildFromTemplate([
-        { label: 'Wave', click: () => win.playOneShot('waving') },
-        { type: 'separator' },
-        { label: 'Quit Desktop Pets', click: () => app.quit() },
-      ]).popup({ window: win.win });
-      break;
-  }
+function spriteFor(reaction: Reaction, session: AgentSession | undefined): SpriteStateName {
+  if (reaction === 'running') return session?.runFlip ? 'running-left' : 'running-right';
+  return DEFAULT_REACTION_MAP[reaction];
+}
+
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}`;
 }
 
 app.whenReady().then(async () => {
@@ -43,7 +43,9 @@ app.whenReady().then(async () => {
 
     const store = new StateStore(smokeMode);
     const active = resolveActivePet(store.get().activePetId);
-    console.log(`[pets] active: ${active.pet.displayName} (${active.pet.id}) — ${active.pet.license} by ${active.pet.author}`);
+    console.log(
+      `[pets] active: ${active.pet.displayName} (${active.pet.id}) — ${active.pet.license} by ${active.pet.author}`,
+    );
 
     const win = new PetWindow({
       slot: 'home',
@@ -51,8 +53,75 @@ app.whenReady().then(async () => {
       sheetUrl: active.sheetUrl,
       tag: active.pet.displayName,
       store,
-      onAction: onPetAction,
+      onAction: (w, action: PetAction) => {
+        switch (action.type) {
+          case 'click':
+            w.playOneShot('waving');
+            break;
+          case 'dismiss-alarm':
+            w.patchVM({ alarm: false, bubble: undefined });
+            break;
+          case 'button':
+            console.log(`[pet] button pressed: ${action.id}`);
+            break;
+          case 'context-menu':
+            Menu.buildFromTemplate([
+              { label: 'Wave', click: () => w.playOneShot('waving') },
+              { type: 'separator' },
+              { label: 'Quit Desktop Pets', click: () => app.quit() },
+            ]).popup({ window: w.win });
+            break;
+        }
+      },
     });
+
+    const renderHome = (): void => {
+      const session = sessions.displaySession();
+      const vm: PetViewModel = {
+        sheetUrl: active.sheetUrl,
+        spriteState: session ? spriteFor(session.status, session) : 'idle',
+        tag: session ? session.name : active.pet.displayName,
+      };
+      if (session?.oneShot) {
+        vm.oneShot = { state: spriteFor(session.oneShot.reaction, session), nonce: session.oneShot.nonce };
+      }
+      if (session?.bubbleText) {
+        vm.bubble = { text: session.bubbleText };
+      }
+      if (session?.waitingSince) {
+        vm.badge = formatDuration(Date.now() - session.waitingSince);
+      }
+      win.setVM(vm);
+    };
+
+    const sessions = new SessionManager({
+      sanitize: (t) => sanitizeSpeech(t),
+      onChange: renderHome,
+    });
+
+    const eventLog = logArg ? logArg.slice('--log-events='.length) : undefined;
+    const ipc = new IpcServer({
+      onMessage: (conn, msg) => {
+        if (eventLog) {
+          fs.appendFileSync(
+            eventLog,
+            JSON.stringify({ at: new Date().toISOString(), role: conn.role, msg }) + '\n',
+          );
+        }
+        sessions.handleMessage(conn, msg);
+      },
+      onDisconnect: (conn) => sessions.onDisconnect(conn),
+    });
+    await ipc.start();
+    console.log('[ipc] listening');
+
+    // Refresh blocked-duration badges + drop dead sessions.
+    setInterval(() => {
+      sessions.sweepStale(30 * 60_000);
+      if (sessions.displaySession()?.waitingSince) renderHome();
+    }, 10_000);
+
+    app.on('will-quit', () => ipc.stop());
 
     if (smokeMode) {
       await runSmoke(win, smokeOut);
