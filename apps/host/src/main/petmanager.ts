@@ -12,6 +12,7 @@ export interface ManagedWindow {
   show(): void;
   hide(): void;
   isVisible(): boolean;
+  center(): { x: number; y: number };
   capture(): Promise<Buffer>;
   readonly whenReady: Promise<void>;
   readonly consoleErrors: string[];

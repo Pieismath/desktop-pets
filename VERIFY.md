@@ -101,3 +101,20 @@ machine:
       tell which is stuck and unstick it. Drag them apart — positions persist.
 - [ ] A risky command that also needs permission shows the **alarm** state
       *and* the approve/deny buttons together.
+
+## Stage 7 — digest and duration
+
+Verified live (host + real events): the digest panel showed **Blocked now**
+(with durations, longest first; alarmed items flagged ⚠︎), **Completed**,
+**Failed**, and **Risky**, all from recorded history, local only.
+
+- [ ] Leave a session blocked and watch the pet: the badge counts up and the
+      pet's attention pulse **grows** the longer it waits (subtle at 2 min,
+      insistent at 10 min). While you're away, it re-notifies every ~5 min
+      with the growing wait time.
+- [ ] Click the pet (or 🐾 menu → "While you were away…"): a panel lists what
+      completed, what's blocked and for how long, and what failed. Press Esc
+      or click away to dismiss.
+- [ ] Confirm the history file at
+      `~/Library/Application Support/desktop-pets/history.jsonl` stays bounded
+      and never leaves the machine (no network calls anywhere in the app).

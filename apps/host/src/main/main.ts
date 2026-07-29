@@ -5,14 +5,11 @@ import { DEFAULT_REACTION_MAP, classifyToolCall, resolveReactionMap, sanitizeSpe
 import type { BubbleButton, PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
 import { DecisionBroker } from './broker.js';
 import { ConfigStore } from './config.js';
-import {
-  agentBundleId,
-  computeTier,
-  tierFiresNotification,
-  tierQueuesDigest,
-  tierShowsBubble,
-} from './escalation.js';
+import { buildDigest, renderDigestHtml, type LiveBlocked } from './digest.js';
+import { DigestWindow } from './digestwindow.js';
+import { agentBundleId, computeTier, tierFiresNotification, tierShowsBubble } from './escalation.js';
 import { focusApp } from './focusapp.js';
+import { HistoryStore } from './history.js';
 import { IpcServer } from './ipc-server.js';
 import { ElectronNotifier } from './notify.js';
 import { PetManager, type PetKey } from './petmanager.js';
@@ -36,6 +33,7 @@ const stateCaptureArg = process.argv.find((a) => a.startsWith('--capture-state='
 const autoDecideArg = process.argv.find((a) => a.startsWith('--auto-decide='));
 // Debug: write the live pet inventory (one entry per concurrent session pet).
 const dumpPetsArg = process.argv.find((a) => a.startsWith('--dump-pets='));
+const autoDigestArg = process.argv.find((a) => a.startsWith('--auto-digest='));
 const capturePetsArg = process.argv.find((a) => a.startsWith('--capture-pets='));
 const capturePetsDir = capturePetsArg ? capturePetsArg.slice('--capture-pets='.length) : undefined;
 
@@ -56,6 +54,14 @@ function formatDuration(ms: number): string {
   if (m < 60) return `${m}m`;
   return `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}`;
 }
+
+/** Blocked-duration urgency: the pet escalates visibly the longer it waits. */
+function urgencyFor(blockedMs: number): 0 | 1 | 2 {
+  if (blockedMs >= 10 * 60_000) return 2;
+  if (blockedMs >= 2 * 60_000) return 1;
+  return 0;
+}
+const RENOTIFY_MS = 5 * 60_000;
 
 app.whenReady().then(async () => {
   try {
@@ -112,8 +118,18 @@ app.whenReady().then(async () => {
       },
     });
 
-    const digest: Array<{ at: number; kind: string; title: string; body: string }> = [];
+    const history = new HistoryStore({ ephemeral: smokeMode });
+    const digestWindow = new DigestWindow();
     const capturedNotifications: Array<{ title: string; body: string }> = [];
+
+    const openDigest = (near: { x: number; y: number }): void => {
+      const liveBlocked: LiveBlocked[] = sessions
+        .list()
+        .filter((s) => s.waitingSince || s.alarm)
+        .map((s) => ({ project: s.name, since: s.alarm?.since ?? s.waitingSince ?? Date.now(), alarm: !!s.alarm }));
+      const summary = buildDigest(history.all(), liveBlocked, Date.now());
+      digestWindow.toggle(renderDigestHtml(summary, Date.now()), near);
+    };
 
     const buildVM = (session: AgentSession): PetViewModel => {
       const tier = tierFor(session);
@@ -148,6 +164,13 @@ app.whenReady().then(async () => {
 
       if (!pending && session.waitingSince) {
         vm.badge = formatDuration(Date.now() - session.waitingSince);
+      }
+
+      // Duration escalation: the longer blocked, the more urgent the pet looks.
+      const blockedSince = session.waitingSince ?? (pending ? pending.since : undefined);
+      if (blockedSince !== undefined) {
+        const u = urgencyFor(Date.now() - blockedSince);
+        if (u > 0) vm.urgency = u;
       }
 
       if (session.alarm) {
@@ -205,9 +228,11 @@ app.whenReady().then(async () => {
 
     const handlePetAction = (key: PetKey, action: PetAction): void => {
       const session = key === 'home' ? sessions.displaySession() : sessions.get(key);
+      const win = pets.windowFor(key);
       switch (action.type) {
         case 'click':
-          pets.playOneShot(key, 'waving');
+          // Clicking the pet opens the "while you were away" digest.
+          openDigest(win ? win.center() : { x: 0, y: 0 });
           break;
         case 'dismiss-alarm':
           if (session?.alarm) sessions.dismissAlarm(session.key);
@@ -223,6 +248,7 @@ app.whenReady().then(async () => {
           break;
         case 'context-menu':
           Menu.buildFromTemplate([
+            { label: 'While you were away…', click: () => openDigest(win ? win.center() : { x: 0, y: 0 }) },
             { label: 'Do Not Disturb', type: 'checkbox', checked: manualDnd, click: () => toggleDnd() },
             { label: 'Wave', click: () => pets.playOneShot(key, 'waving') },
             { type: 'separator' },
@@ -250,6 +276,7 @@ app.whenReady().then(async () => {
     };
 
     const onSurface = (moment: SurfaceMoment): void => {
+      history.add({ kind: moment.kind, project: moment.session.name, detail: moment.body, sessionKey: moment.session.key });
       const tier = tierFor(moment.session);
       let notified = false;
       if (moment.kind === 'risky') {
@@ -262,7 +289,6 @@ app.whenReady().then(async () => {
           notifier.fire(moment.title, moment.body);
           notified = true;
         }
-        if (tierQueuesDigest(tier)) digest.push({ at: Date.now(), kind: moment.kind, title: moment.title, body: moment.body });
       }
       if (notified) capturedNotifications.push({ title: moment.title, body: moment.body });
       if (stateCaptureArg) {
@@ -320,14 +346,33 @@ app.whenReady().then(async () => {
     await ipc.start();
     console.log('[ipc] listening');
 
+    const lastRenotify = new Map<string, number>();
     setInterval(() => {
       sessions.sweepStale(30 * 60_000);
-      // keep blocked-duration badges + hold countdowns live
+      const now = Date.now();
+      // Duration escalation: re-notify a still-blocked session while the user
+      // is away, at most once per RENOTIFY_MS, with the growing wait time.
+      for (const s of sessions.list()) {
+        if (!s.waitingSince) {
+          lastRenotify.delete(s.key);
+          continue;
+        }
+        const tier = tierFor(s);
+        if (!tierFiresNotification(tier)) continue;
+        const waited = now - s.waitingSince;
+        if (waited < RENOTIFY_MS) continue;
+        const last = lastRenotify.get(s.key) ?? s.waitingSince;
+        if (now - last >= RENOTIFY_MS) {
+          lastRenotify.set(s.key, now);
+          notifier.fire(`${s.name} still blocked`, `Waiting ${formatDuration(waited)} for permission`);
+        }
+      }
       if (sessions.list().some((s) => s.waitingSince || s.alarm) || broker.keys().length > 0) renderAll();
     }, 5_000);
 
     app.on('will-quit', () => {
       broker.releaseAll('host quitting');
+      digestWindow.close();
       focus.stop();
       ipc.stop();
     });
@@ -339,6 +384,12 @@ app.whenReady().then(async () => {
       renderAll();
       const tray = createTray({ isDnd: () => manualDnd, onToggleDnd: toggleDnd, onQuit: () => pets.destroyAll() });
       refreshTray = () => tray.refresh();
+      if (autoDigestArg) {
+        setTimeout(() => {
+          openDigest({ x: 500, y: 500 });
+          setTimeout(() => void digestWindow.capture().then((png) => png && fs.writeFileSync(autoDigestArg.slice('--auto-digest='.length), png)), 500);
+        }, 7000);
+      }
     }
   } catch (err) {
     console.error(err);

@@ -158,6 +158,26 @@ button.plain {
   color: #9fb2c8;
 }
 
+/* Duration escalation: a growing attention pulse the longer a pet is blocked. */
+body.urgent-1 #sprite-wrap {
+  animation: pet-pulse 1.6s ease-in-out infinite;
+}
+
+body.urgent-2 #sprite-wrap {
+  animation: pet-pulse 0.9s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(255, 182, 72, 0.85));
+}
+
+@keyframes pet-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
 body.alarm #sprite-wrap {
   animation: pet-shake 0.5s infinite;
   filter: drop-shadow(0 0 16px rgba(255, 70, 50, 0.8));

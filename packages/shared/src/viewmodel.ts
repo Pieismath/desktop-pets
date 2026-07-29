@@ -56,4 +56,6 @@ export interface PetViewModel {
   dnd?: boolean;
   /** True while an alarm is undismissed — renderer adds the shake/urgency layer. */
   alarm?: boolean;
+  /** Blocked-duration urgency (0 none, 1 waiting a while, 2 waiting a long time). */
+  urgency?: 0 | 1 | 2;
 }

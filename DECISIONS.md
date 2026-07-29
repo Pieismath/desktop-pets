@@ -203,6 +203,19 @@ own state. Cap is 4 (overflow surfaces via existing pets; logged, not silently
 dropped). Window/tab-level focus limitation from D5 applies: "Focus" activates
 the app, not the exact tab.
 
+### D17 — Digest is a data:-URL panel; duration drives escalation
+
+The "while you were away" view is a separate frameless window loading
+host-composed, fully self-contained HTML via a `data:` URL — no preload, no
+IPC, `javascript:false`, strict CSP, project names HTML-escaped. It closes on
+blur/Escape and is regenerated on each open so it always reflects current
+state. Verified live: it correctly showed blocked-now (with durations, alarmed
+items flagged), completed, failed, and risky from recorded history. History is
+a bounded JSONL log (≤300 entries / 7 days), local only. Duration escalation:
+the blocked-duration badge counts up, a CSS attention-pulse grows at 2 min
+(urgency 1) and 10 min (urgency 2), and a still-blocked session re-notifies at
+most every 5 min while the user is away, with the growing wait time.
+
 ### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
 
 The "is the agent's own app focused?" test compares the frontmost bundle id

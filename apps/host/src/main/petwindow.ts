@@ -199,6 +199,12 @@ export class PetWindow {
     return !this.win.isDestroyed() && this.win.isVisible();
   }
 
+  /** Centre point of the window in screen coordinates (for panel placement). */
+  center(): { x: number; y: number } {
+    const { x, y } = this.winPos();
+    return { x: x + PET_WINDOW.width / 2, y: y + PET_WINDOW.height / 2 };
+  }
+
   show(): void {
     if (!this.win.isDestroyed() && !this.win.isVisible()) this.win.showInactive();
   }

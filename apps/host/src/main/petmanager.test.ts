@@ -35,6 +35,9 @@ class FakeWindow implements ManagedWindow {
   isVisible(): boolean {
     return this.visible;
   }
+  center(): { x: number; y: number } {
+    return { x: 0, y: 0 };
+  }
   destroy(): void {
     this.destroyed = true;
   }

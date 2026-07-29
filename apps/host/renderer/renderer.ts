@@ -177,6 +177,8 @@ function applyVM(vm: PetViewModel): void {
   if (vm.tag) tag.textContent = vm.tag;
   dnd.hidden = !vm.dnd;
   document.body.classList.toggle('alarm', !!vm.alarm);
+  document.body.classList.toggle('urgent-1', vm.urgency === 1);
+  document.body.classList.toggle('urgent-2', vm.urgency === 2);
 }
 
 // ---- drag vs click (screen coords: the window moves under the cursor) ----
