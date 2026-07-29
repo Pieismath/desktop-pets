@@ -79,3 +79,25 @@ idle > 2 min → `notify` (OS notification fired). To reproduce by hand:
       non-alarm bubbles/notifications go silent, but an `alarm` still shows.
 - [ ] Join a Zoom/Teams/Meet call (bring it frontmost): DND auto-engages while
       it's frontmost (edit `config.json` → `dnd.autoApps` to tune the list).
+
+## Stage 6 — talk back (the payoff)
+
+All four decision paths were verified live against the real Claude Code hook
+contract (see D15). To reproduce end to end on a normally-authenticated
+machine:
+
+- [ ] With the pet installed (`node packages/hooks/dist/installer.js install`)
+      and running, from **another app** (not the terminal) trigger a Claude
+      permission request. The pet enters `waiting` with **Approve / Deny /
+      Focus** and a countdown.
+- [ ] Click **Approve** → the tool runs. Repeat and click **Deny** → Claude
+      reports the denial. Click **Focus** → the agent's terminal comes forward
+      and the native prompt takes over.
+- [ ] Focus the agent's terminal *without* clicking: the pet's buttons go away
+      and the native prompt appears (the terminal answers when you're looking
+      at it).
+- [ ] Run two Claude sessions in two projects at once: **two pets** appear,
+      each tagged with its project; the blocked one shows buttons so you can
+      tell which is stuck and unstick it. Drag them apart — positions persist.
+- [ ] A risky command that also needs permission shows the **alarm** state
+      *and* the approve/deny buttons together.

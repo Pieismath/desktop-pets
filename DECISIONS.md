@@ -168,6 +168,41 @@ Also fixed here: macOS caps `AF_UNIX` socket paths at ~104 bytes, so
 when the data dir would exceed the budget (clients always read the actual
 path from `ipc.json`, so only the host computes it).
 
+### D15 — Feature #2 is REAL and verified end-to-end (approve/deny/focus)
+
+Because hooks *can* return a decision (D1), the pet's approve/deny is a real
+control surface, not the stubbed fallback the brief anticipated. Verified live
+against the actual Claude Code hook contract by feeding the runner a
+`PermissionRequest` payload while the host held it, then driving the exact
+button-action path a click uses:
+
+- **Approve** → hook emitted `{"hookSpecificOutput":{"hookEventName":
+  "PermissionRequest","decision":{"behavior":"allow"}}}`
+- **Deny** → `…"decision":{"behavior":"deny","message":"Denied from desktop
+  pet"}}`
+- **Focus** → released with no output + `open -b <bundleId>` (native prompt
+  takes over)
+- **Agent terminal already frontmost** → released immediately with no output
+
+Hold policy: the host holds a `PermissionRequest` only when the agent's own
+app is NOT frontmost (otherwise the native terminal prompt is right there —
+release immediately). While held, focusing the agent's terminal auto-releases
+'none'. Host max-hold is 570 s, under the 600 s hook timeout; on expiry we
+release 'none' so Claude's own prompt is authoritative. The broker answers
+each waiting hook exactly once (idempotent resolve), tested including timeout
+and supersede paths. PreToolUse never holds — it only classifies/alarms (D7).
+
+### D16 — One pet per concurrent session, capped at 4
+
+`PetManager` spawns a pet per active session (stable slot indices with per-slot
+position memory), destroys a pet when its session ends, and shows the idle
+"home" pet only when zero sessions are active. Verified live: two sessions →
+two pets tagged `alpha`/`bravo` in distinct slots, one showing live
+approve/deny/focus buttons with a real countdown while the other rendered its
+own state. Cap is 4 (overflow surfaces via existing pets; logged, not silently
+dropped). Window/tab-level focus limitation from D5 applies: "Focus" activates
+the app, not the exact tab.
+
 ### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
 
 The "is the agent's own app focused?" test compares the frontmost bundle id

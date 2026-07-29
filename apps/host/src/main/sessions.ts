@@ -23,6 +23,7 @@ export interface AgentSession {
   bubbleText?: string;
   /** Set while blocked on a permission decision. */
   waitingSince?: number;
+  firstSeen: number;
   lastEventAt: number;
   ended?: boolean;
   /** Alternates the two running rows so pacing looks alive. */
@@ -130,6 +131,7 @@ export class SessionManager {
       key,
       name: cwd ? path.basename(cwd) : 'agent',
       status: 'idle',
+      firstSeen: this.now(),
       lastEventAt: this.now(),
       ...(sessionId !== undefined ? { sessionId } : {}),
       ...(cwd !== undefined ? { cwd } : {}),

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { app, powerMonitor } from 'electron';
 import { SPRITE_STATES } from '@desktop-pets/shared';
 import type { PetViewModel } from '@desktop-pets/shared';
-import type { PetWindow } from './petwindow.js';
+import type { ManagedWindow } from './petmanager.js';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -20,7 +20,7 @@ interface SmokeReport {
  * sprite state, self-capture the (transparent) window to PNGs, prove the
  * steps() animation advances, and fail on any renderer console error.
  */
-export async function runSmoke(win: PetWindow, outDir: string): Promise<never> {
+export async function runSmoke(win: ManagedWindow, outDir: string): Promise<never> {
   fs.mkdirSync(outDir, { recursive: true });
   const captured: string[] = [];
 

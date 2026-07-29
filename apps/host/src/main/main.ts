@@ -2,22 +2,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Menu, app, dialog } from 'electron';
 import { DEFAULT_REACTION_MAP, classifyToolCall, resolveReactionMap, sanitizeSpeech } from '@desktop-pets/shared';
-import type { PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
+import type { BubbleButton, PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
+import { DecisionBroker } from './broker.js';
 import { ConfigStore } from './config.js';
 import {
+  agentBundleId,
   computeTier,
   tierFiresNotification,
   tierQueuesDigest,
   tierShowsBubble,
-  agentBundleId,
 } from './escalation.js';
+import { focusApp } from './focusapp.js';
 import { IpcServer } from './ipc-server.js';
 import { ElectronNotifier } from './notify.js';
+import { PetManager, type PetKey } from './petmanager.js';
 import { resolveActivePet } from './pets.js';
-import { PetWindow } from './petwindow.js';
 import { DndController, LsappinfoFocusProvider, PowerMonitorIdleProvider } from './providers.js';
 import { RiskConfigStore } from './risk-config.js';
-import type { AgentSession, SurfaceMoment } from './sessions.js';
+import type { AgentSession, DecisionRequest, SurfaceMoment } from './sessions.js';
 import { SessionManager } from './sessions.js';
 import { runSmoke } from './smoke.js';
 import { StateStore } from './store.js';
@@ -28,8 +30,20 @@ const outArg = process.argv.find((a) => a.startsWith('--out='));
 const smokeOut = outArg ? outArg.slice('--out='.length) : path.join(process.cwd(), 'captures');
 const logArg = process.argv.find((a) => a.startsWith('--log-events='));
 const alarmCaptureArg = process.argv.find((a) => a.startsWith('--capture-on-alarm='));
-// Debug: after the first surfaced moment, dump {vm, tier, notified} to a file.
 const stateCaptureArg = process.argv.find((a) => a.startsWith('--capture-state='));
+// Debug: simulate a pet button click on the next held decision (proves the
+// approve/deny/focus path without a human clicking).
+const autoDecideArg = process.argv.find((a) => a.startsWith('--auto-decide='));
+// Debug: write the live pet inventory (one entry per concurrent session pet).
+const dumpPetsArg = process.argv.find((a) => a.startsWith('--dump-pets='));
+const capturePetsArg = process.argv.find((a) => a.startsWith('--capture-pets='));
+const capturePetsDir = capturePetsArg ? capturePetsArg.slice('--capture-pets='.length) : undefined;
+
+// Host-side hold for a blocked-on-permission request. Must stay under the
+// PermissionRequest hook timeout (600s in settings); on expiry we release
+// 'none' and Claude Code's own prompt takes over.
+const MAX_HOLD_MS = 570_000;
+const MAX_PETS = 4;
 
 if (!smokeMode && !app.requestSingleInstanceLock()) {
   app.quit();
@@ -54,7 +68,6 @@ app.whenReady().then(async () => {
       `[pets] active: ${active.pet.displayName} (${active.pet.id}) — ${active.pet.license} by ${active.pet.author}`,
     );
 
-    // Reaction → sprite-state map, user overrides validated against known names.
     const resolved = resolveReactionMap(config.get().reactionMap);
     for (const issue of resolved.issues) console.warn(`[config] reactionMap: ${issue.problem} ${issue.reaction}`);
     let reactionMap = resolved.map;
@@ -63,99 +76,181 @@ app.whenReady().then(async () => {
       return reactionMap[reaction] ?? DEFAULT_REACTION_MAP[reaction];
     };
 
-    // --- environment (all zero-permission, behind swappable interfaces) ---
+    // --- environment (zero-permission, swappable) ---
     let manualDnd = store.get().dndManual === true;
     const focus = new LsappinfoFocusProvider();
     const idle = new PowerMonitorIdleProvider();
     const dnd = new DndController({ autoApps: config.get().dnd.autoApps, isManual: () => manualDnd });
     const notifier = new ElectronNotifier();
-
     const dndActive = (): boolean => dnd.isActive(focus.current());
-    const currentTier = () =>
+
+    const isAgentFocused = (session: AgentSession): boolean => {
+      const front = focus.current();
+      const agent = agentBundleId(session);
+      return !!front && !!agent && front === agent;
+    };
+
+    const tierFor = (session: AgentSession | undefined) =>
       computeTier({
         idleSeconds: idle.seconds(),
         focusedBundleId: focus.current(),
-        agentBundleId: agentBundleId(sessions.displaySession() ?? {}),
+        agentBundleId: session ? agentBundleId(session) : undefined,
         dnd: dndActive(),
         thresholds: config.get().escalation,
       });
 
-    const win = new PetWindow({
-      slot: 'home',
-      slotIndex: 0,
-      sheetUrl: active.sheetUrl,
-      tag: active.pet.displayName,
-      store,
-      onAction: (w, action: PetAction) => {
-        switch (action.type) {
-          case 'click':
-            w.playOneShot('waving');
-            break;
-          case 'dismiss-alarm': {
-            const session = sessions.displaySession();
-            if (session?.alarm) sessions.dismissAlarm(session.key);
-            else w.patchVM({ alarm: false, bubble: undefined });
-            break;
-          }
-          case 'button':
-            console.log(`[pet] button pressed: ${action.id}`);
-            break;
-          case 'context-menu':
-            Menu.buildFromTemplate([
-              { label: `Do Not Disturb`, type: 'checkbox', checked: manualDnd, click: () => toggleDnd() },
-              { label: 'Wave', click: () => w.playOneShot('waving') },
-              { type: 'separator' },
-              { label: 'Quit Desktop Pets', click: () => app.quit() },
-            ]).popup({ window: w.win });
-            break;
+    // --- decision broker (the approve/deny/focus payoff) ---
+    const broker = new DecisionBroker({
+      maxHoldMs: MAX_HOLD_MS,
+      onResolved: (key, decision) => {
+        const s = sessions.get(key);
+        if (s && decision !== 'none') {
+          delete s.waitingSince;
+          s.status = decision === 'allow' ? 'working' : 'idle';
         }
+        renderAll();
       },
     });
 
-    const renderHome = (): void => {
-      const session = sessions.displaySession();
-      const tier = currentTier();
+    const digest: Array<{ at: number; kind: string; title: string; body: string }> = [];
+    const capturedNotifications: Array<{ title: string; body: string }> = [];
+
+    const buildVM = (session: AgentSession): PetViewModel => {
+      const tier = tierFor(session);
+      const pending = broker.get(session.key);
       const vm: PetViewModel = {
         sheetUrl: active.sheetUrl,
-        spriteState: session ? spriteFor(session.status, session) : 'idle',
-        tag: session ? session.name : active.pet.displayName,
+        spriteState: spriteFor(session.status, session),
+        tag: session.name,
         dnd: dndActive(),
       };
-      if (session?.oneShot) {
+      if (session.oneShot && !pending && !session.alarm) {
         vm.oneShot = { state: spriteFor(session.oneShot.reaction, session), nonce: session.oneShot.nonce };
       }
-      // Escalation gates the bubble: silent animation when the agent's own app
-      // is focused (or DND); a bubble only once we're allowed to be louder.
-      if (session?.bubbleText && tierShowsBubble(tier)) {
+
+      const decisionButtons: BubbleButton[] = [
+        { id: 'approve', label: 'Approve', kind: 'approve' },
+        { id: 'deny', label: 'Deny', kind: 'deny' },
+        { id: 'focus', label: 'Focus', kind: 'focus' },
+      ];
+
+      if (pending) {
+        vm.spriteState = 'waiting';
+        vm.bubble = {
+          text: `Needs permission: ${pending.tool}`,
+          buttons: decisionButtons,
+          countdownMs: Math.max(0, pending.deadline - Date.now()),
+        };
+        vm.badge = formatDuration(Date.now() - (session.waitingSince ?? pending.since));
+      } else if (session.bubbleText && tierShowsBubble(tier)) {
         vm.bubble = { text: session.bubbleText };
       }
-      if (session?.waitingSince) {
+
+      if (!pending && session.waitingSince) {
         vm.badge = formatDuration(Date.now() - session.waitingSince);
       }
-      if (session?.alarm) {
-        // Alarm outranks the ladder and DND: always maximally visible.
+
+      if (session.alarm) {
+        // Alarm outranks the ladder and DND; keep decision buttons if one is held.
         vm.spriteState = 'alarm';
         vm.alarm = true;
         vm.bubble = {
           text: session.alarm.detail ? `${session.alarm.reason} — ${session.alarm.detail}` : session.alarm.reason,
+          ...(pending ? { buttons: decisionButtons } : {}),
         };
         vm.badge = formatDuration(Date.now() - session.alarm.since);
         delete vm.oneShot;
       }
-      win.setVM(vm);
-      if (vm.alarm && alarmCaptureArg && !alarmCaptured) {
-        alarmCaptured = true;
+      return vm;
+    };
+
+    const renderAll = (): void => {
+      const activeSessions = sessions.list().sort((a, b) => a.firstSeen - b.firstSeen);
+      const owned = pets.reconcile(activeSessions.map((s) => s.key));
+      if (activeSessions.length === 0) {
+        pets.render('home', { sheetUrl: active.sheetUrl, spriteState: 'idle', tag: active.pet.displayName, dnd: dndActive() });
+        return;
+      }
+      for (const s of activeSessions) {
+        if (owned.includes(s.key)) pets.render(s.key, buildVM(s));
+      }
+      if (dumpPetsArg) {
+        setTimeout(() => fs.writeFileSync(dumpPetsArg.slice('--dump-pets='.length), JSON.stringify(pets.inventory(), null, 2)), 60);
+      }
+      if (capturePetsDir) {
         setTimeout(() => {
-          void win.capture().then((png) => fs.writeFileSync(alarmCaptureArg.slice('--capture-on-alarm='.length), png));
+          for (const s of activeSessions) {
+            const win = pets.windowFor(s.key);
+            if (win) void win.capture().then((png) => fs.writeFileSync(path.join(capturePetsDir, `${s.name}.png`), png));
+          }
+        }, 500);
+      }
+      if (alarmCaptureArg && !alarmCaptured && activeSessions.some((s) => s.alarm)) {
+        alarmCaptured = true;
+        const alarmed = activeSessions.find((s) => s.alarm)!;
+        setTimeout(() => {
+          const win = pets.windowFor(alarmed.key);
+          if (win) void win.capture().then((png) => fs.writeFileSync(alarmCaptureArg.slice('--capture-on-alarm='.length), png));
         }, 450);
       }
     };
     let alarmCaptured = false;
 
-    const notifications: Array<{ title: string; body: string }> = [];
+    const pets = new PetManager({
+      sheetUrl: active.sheetUrl,
+      store,
+      maxPets: MAX_PETS,
+      onAction: (key: PetKey, action: PetAction) => handlePetAction(key, action),
+    });
+
+    const handlePetAction = (key: PetKey, action: PetAction): void => {
+      const session = key === 'home' ? sessions.displaySession() : sessions.get(key);
+      switch (action.type) {
+        case 'click':
+          pets.playOneShot(key, 'waving');
+          break;
+        case 'dismiss-alarm':
+          if (session?.alarm) sessions.dismissAlarm(session.key);
+          break;
+        case 'button':
+          if (!session) break;
+          if (action.id === 'approve') broker.resolve(session.key, 'allow', 'Approved from desktop pet');
+          else if (action.id === 'deny') broker.resolve(session.key, 'deny', 'Denied from desktop pet');
+          else if (action.id === 'focus') {
+            focusApp(agentBundleId(session));
+            broker.resolve(session.key, 'none', 'focused terminal');
+          }
+          break;
+        case 'context-menu':
+          Menu.buildFromTemplate([
+            { label: 'Do Not Disturb', type: 'checkbox', checked: manualDnd, click: () => toggleDnd() },
+            { label: 'Wave', click: () => pets.playOneShot(key, 'waving') },
+            { type: 'separator' },
+            { label: 'Quit Desktop Pets', click: () => app.quit() },
+          ]).popup();
+          break;
+      }
+    };
+
+    const onDecisionRequest = (req: DecisionRequest): void => {
+      if (req.event !== 'PermissionRequest') {
+        // PreToolUse: we only classify/alarm here, never gate (D7).
+        req.respond('none');
+        return;
+      }
+      // If the agent's own terminal is frontmost, the native prompt is right
+      // there — release immediately (D1). Otherwise hold for the pet.
+      if (isAgentFocused(req.session)) req.respond('none', 'agent app focused');
+      else broker.hold(req);
+      renderAll();
+      if (autoDecideArg && broker.has(req.session.key)) {
+        const id = autoDecideArg.slice('--auto-decide='.length);
+        setTimeout(() => handlePetAction(req.session.key, { type: 'button', id }), 800);
+      }
+    };
+
     const onSurface = (moment: SurfaceMoment): void => {
-      // Alarms are surfaced on-screen already; still notify when the user is away.
-      const tier = currentTier();
+      const tier = tierFor(moment.session);
       let notified = false;
       if (moment.kind === 'risky') {
         if (tierFiresNotification(tier) || tier === 'silent') {
@@ -167,45 +262,49 @@ app.whenReady().then(async () => {
           notifier.fire(moment.title, moment.body);
           notified = true;
         }
-        if (tierQueuesDigest(tier)) digest.push({ at: Date.now(), ...moment, session: undefined });
+        if (tierQueuesDigest(tier)) digest.push({ at: Date.now(), kind: moment.kind, title: moment.title, body: moment.body });
       }
-      if (notified) notifications.push({ title: moment.title, body: moment.body });
+      if (notified) capturedNotifications.push({ title: moment.title, body: moment.body });
       if (stateCaptureArg) {
-        // renderHome() runs right after this via onChange; capture the settled VM.
         setTimeout(() => {
+          const key = moment.session.key;
+          const win = pets.windowFor(key) ?? pets.homeWindow();
           fs.writeFileSync(
             stateCaptureArg.slice('--capture-state='.length),
-            JSON.stringify({ tier, notified, vm: win.getVM(), notifications, moment: { kind: moment.kind } }, null, 2),
+            JSON.stringify({ tier, notified, vm: win.getVM(), notifications: capturedNotifications, moment: { kind: moment.kind } }, null, 2),
           );
-        }, 60);
+        }, 80);
       }
     };
-
-    // Minimal in-memory digest collector; stage 7 replaces with bounded history.
-    const digest: Array<{ at: number; kind: string; title: string; body: string; session: undefined }> = [];
 
     const riskConfig = new RiskConfigStore();
     const sessions = new SessionManager({
       sanitize: (t) => sanitizeSpeech(t),
-      onChange: renderHome,
+      onChange: renderAll,
       classify: (call) => classifyToolCall(call, riskConfig.get()),
+      onDecisionRequest,
       onSurface,
     });
 
     const toggleDnd = (): void => {
       manualDnd = !manualDnd;
       store.update({ dndManual: manualDnd });
-      console.log(`[dnd] manual ${manualDnd ? 'on' : 'off'}`);
-      renderHome();
+      renderAll();
       refreshTray();
     };
 
-    focus.start(() => renderHome());
+    // Focus changes: re-render, and auto-release any hold whose terminal is now front.
+    focus.start(() => {
+      for (const key of broker.keys()) {
+        const s = sessions.get(key);
+        if (s && isAgentFocused(s)) broker.resolve(key, 'none', 'focused terminal');
+      }
+      renderAll();
+    });
     config.watch((next) => {
       dnd.setAutoApps(next.dnd.autoApps);
-      const r = resolveReactionMap(next.reactionMap);
-      reactionMap = r.map;
-      renderHome();
+      reactionMap = resolveReactionMap(next.reactionMap).map;
+      renderAll();
     });
 
     const eventLog = logArg ? logArg.slice('--log-events='.length) : undefined;
@@ -223,23 +322,22 @@ app.whenReady().then(async () => {
 
     setInterval(() => {
       sessions.sweepStale(30 * 60_000);
-      if (sessions.displaySession()?.waitingSince || sessions.displaySession()?.alarm) renderHome();
-    }, 10_000);
+      // keep blocked-duration badges + hold countdowns live
+      if (sessions.list().some((s) => s.waitingSince || s.alarm) || broker.keys().length > 0) renderAll();
+    }, 5_000);
 
     app.on('will-quit', () => {
+      broker.releaseAll('host quitting');
       focus.stop();
       ipc.stop();
     });
 
     let refreshTray = (): void => {};
     if (smokeMode) {
-      await runSmoke(win, smokeOut);
+      await runSmoke(pets.homeWindow(), smokeOut);
     } else {
-      const tray = createTray({
-        isDnd: () => manualDnd,
-        onToggleDnd: toggleDnd,
-        onQuit: () => win.destroy(),
-      });
+      renderAll();
+      const tray = createTray({ isDnd: () => manualDnd, onToggleDnd: toggleDnd, onQuit: () => pets.destroyAll() });
       refreshTray = () => tray.refresh();
     }
   } catch (err) {

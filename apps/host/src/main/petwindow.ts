@@ -195,6 +195,18 @@ export class PetWindow {
     this.opts.store.setPosition(this.opts.slot, pos);
   }
 
+  isVisible(): boolean {
+    return !this.win.isDestroyed() && this.win.isVisible();
+  }
+
+  show(): void {
+    if (!this.win.isDestroyed() && !this.win.isVisible()) this.win.showInactive();
+  }
+
+  hide(): void {
+    if (!this.win.isDestroyed() && this.win.isVisible()) this.win.hide();
+  }
+
   async capture(): Promise<Buffer> {
     const img = await this.win.webContents.capturePage();
     return img.toPNG();
