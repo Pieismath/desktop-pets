@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/client" },
+    { "path": "packages/hooks" },
+    { "path": "packages/mcp" },
+    { "path": "packages/create-pet" },
+    { "path": "apps/host" },
+    { "path": "apps/host/tsconfig.preload.json" },
+    { "path": "apps/host/tsconfig.renderer.json" }
+  ]
+}
