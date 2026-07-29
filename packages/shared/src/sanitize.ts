@@ -34,6 +34,10 @@ const ENV_ASSIGN_RE = /\b([A-Z][A-Z0-9_]{2,})=[^\s'"`]+/g;
 const HOME_PATH_RE = /(?:~|\/(?:Users|home)\/[\w.-]+)(?:\/[^\s:'"`]*)*/g;
 const ABS_PATH_RE = /(?<![\w@.:])\/[\w.@+-]+(?:\/[\w.@+~-]+)+\/?/g;
 const ROOT_PATH_RE = /(?<![\w@.:])\/(?:etc|var|usr|tmp|opt|private|dev|bin|sbin|lib|srv|proc)(?:\/[\w.@+~-]+)*\b/g;
+// Any remaining single-segment absolute path (/data, /backup) — a slash-word
+// preceded by non-word can't be prose ("TCP/IP", "50/50" are protected by
+// the lookbehind), so treat it as a path.
+const ABS_SINGLE_RE = /(?<![\w@.:])\/[\w.@+-]{2,}(?=[\s,.;:!?)]|$)/g;
 const WIN_PATH_RE = /\b[A-Za-z]:\\[^\s'"`]+/g;
 
 // Opaque tokens: long hex, known credential prefixes, long mixed-class blobs.
@@ -68,6 +72,7 @@ export function sanitizeSpeech(input: unknown, opts: SanitizeOptions = {}): stri
   text = text.replace(WIN_PATH_RE, '⟨path⟩');
   text = text.replace(ABS_PATH_RE, '⟨path⟩');
   text = text.replace(ROOT_PATH_RE, '⟨path⟩');
+  text = text.replace(ABS_SINGLE_RE, '⟨path⟩');
   text = text.replace(KNOWN_TOKEN_RE, '⟨token⟩');
   text = text.replace(HEX_TOKEN_RE, '⟨token⟩');
   text = text.replace(MIXED_TOKEN_RE, '⟨token⟩');

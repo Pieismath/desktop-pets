@@ -120,6 +120,35 @@ describe('SessionManager', () => {
     expect(m.displaySession()!.runFlip).toBe(!first);
   });
 
+  it('raises a sticky alarm from the classifier and clears it only on dismiss', () => {
+    const { m } = mgr({
+      classify: (call) =>
+        typeof call.toolInput?.['command'] === 'string' && (call.toolInput['command'] as string).includes('rm -rf')
+          ? { level: 'alarm', ruleId: 'rm-recursive-force', reason: 'Recursive force-delete (rm -rf)' }
+          : { level: 'none' },
+    });
+    const conn = fakeConn();
+    m.handleMessage(conn, evt('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'rm -rf /data' } }));
+    const s = m.displaySession()!;
+    expect(s.alarm).toMatchObject({ ruleId: 'rm-recursive-force' });
+    expect(s.alarm?.detail).toBe('rm -rf ⟨path⟩');
+
+    // Alarm survives subsequent activity — it is dismissed, not aged out.
+    m.handleMessage(conn, evt('PostToolUse', { tool_name: 'Bash' }));
+    m.handleMessage(conn, evt('Stop'));
+    expect(s.alarm).toBeDefined();
+
+    m.dismissAlarm(s.key);
+    expect(s.alarm).toBeUndefined();
+  });
+
+  it('stays silent for ordinary commands when a classifier is installed', () => {
+    const { m } = mgr({ classify: () => ({ level: 'none' }) });
+    const conn = fakeConn();
+    m.handleMessage(conn, evt('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'ls' } }));
+    expect(m.displaySession()!.alarm).toBeUndefined();
+  });
+
   it('sweeps sessions that stopped sending events (agent died mid-task)', () => {
     let t = 1000;
     const { m } = mgr({ now: () => t });

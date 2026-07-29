@@ -3,12 +3,14 @@ import path from 'node:path';
 import { Menu, app, dialog } from 'electron';
 import {
   DEFAULT_REACTION_MAP,
+  classifyToolCall,
   sanitizeSpeech,
 } from '@desktop-pets/shared';
 import type { PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
 import { IpcServer } from './ipc-server.js';
 import { resolveActivePet } from './pets.js';
 import { PetWindow } from './petwindow.js';
+import { RiskConfigStore } from './risk-config.js';
 import type { AgentSession } from './sessions.js';
 import { SessionManager } from './sessions.js';
 import { runSmoke } from './smoke.js';
@@ -19,6 +21,8 @@ const smokeMode = process.argv.includes('--smoke');
 const outArg = process.argv.find((a) => a.startsWith('--out='));
 const smokeOut = outArg ? outArg.slice('--out='.length) : path.join(process.cwd(), 'captures');
 const logArg = process.argv.find((a) => a.startsWith('--log-events='));
+// Debug: self-capture the pet window the first time an alarm renders.
+const alarmCaptureArg = process.argv.find((a) => a.startsWith('--capture-on-alarm='));
 
 if (!smokeMode && !app.requestSingleInstanceLock()) {
   app.quit();
@@ -58,9 +62,12 @@ app.whenReady().then(async () => {
           case 'click':
             w.playOneShot('waving');
             break;
-          case 'dismiss-alarm':
-            w.patchVM({ alarm: false, bubble: undefined });
+          case 'dismiss-alarm': {
+            const session = sessions.displaySession();
+            if (session?.alarm) sessions.dismissAlarm(session.key);
+            else w.patchVM({ alarm: false, bubble: undefined });
             break;
+          }
           case 'button':
             console.log(`[pet] button pressed: ${action.id}`);
             break;
@@ -91,12 +98,33 @@ app.whenReady().then(async () => {
       if (session?.waitingSince) {
         vm.badge = formatDuration(Date.now() - session.waitingSince);
       }
+      if (session?.alarm) {
+        // Risk alarm outranks everything else on screen (sticky until dismissed).
+        vm.spriteState = 'alarm';
+        vm.alarm = true;
+        vm.bubble = {
+          text: session.alarm.detail
+            ? `${session.alarm.reason} — ${session.alarm.detail}`
+            : session.alarm.reason,
+        };
+        vm.badge = formatDuration(Date.now() - session.alarm.since);
+        delete vm.oneShot;
+      }
       win.setVM(vm);
+      if (vm.alarm && alarmCaptureArg && !alarmCaptured) {
+        alarmCaptured = true;
+        setTimeout(() => {
+          void win.capture().then((png) => fs.writeFileSync(alarmCaptureArg.slice('--capture-on-alarm='.length), png));
+        }, 450);
+      }
     };
+    let alarmCaptured = false;
 
+    const riskConfig = new RiskConfigStore();
     const sessions = new SessionManager({
       sanitize: (t) => sanitizeSpeech(t),
       onChange: renderHome,
+      classify: (call) => classifyToolCall(call, riskConfig.get()),
     });
 
     const eventLog = logArg ? logArg.slice('--log-events='.length) : undefined;

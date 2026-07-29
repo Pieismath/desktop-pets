@@ -43,3 +43,19 @@ claude                                            # terminal 2, any project
       desktop-pets entries — diff settings.json against the printed backup.
 - [ ] MCP (optional): `claude mcp add desktop-pets -- node <repo>/packages/mcp/dist/bin.js`,
       then ask Claude to use `pet_say` — bubble shows sanitised text.
+
+## Stage 4 — risk classification
+
+The classifier is exhaustively unit-tested in both directions (80 cases in
+`packages/shared/src/risk.test.ts`) and was verified live: with the pet
+running, `sudo rm -rf /var/data/uploads` fired the red alarm (path shown as
+`⟨path⟩`) while `ls -la` stayed silent.
+
+- [ ] The rules file exists and is readable at
+      `~/Library/Application Support/desktop-pets/risk-rules.json` — this is
+      the one file to audit/edit; edits hot-reload (watch the log for
+      `[risk] rules reloaded`).
+- [ ] Alarm reads as unmistakable vs a normal state, and clicking the pet
+      (or the bubble's Deny) dismisses it.
+- [ ] Add a custom rule (e.g. block `npm publish`) and confirm it fires; set
+      `"enabled": false` on a default rule and confirm it stops firing.

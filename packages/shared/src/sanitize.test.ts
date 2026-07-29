@@ -42,6 +42,9 @@ describe('sanitizeSpeech — security boundary', () => {
     expect(sanitizeSpeech('read /opt/homebrew/bin/node')).toBe('read ⟨path⟩');
     expect(sanitizeSpeech('touched /etc/passwd')).toBe('touched ⟨path⟩');
     expect(sanitizeSpeech('at /home/deploy/app/config')).toBe('at ⟨path⟩');
+    expect(sanitizeSpeech('rm -rf /data')).toBe('rm -rf ⟨path⟩');
+    expect(sanitizeSpeech('backup at /backups now')).toBe('backup at ⟨path⟩ now');
+    expect(sanitizeSpeech('TCP/IP and 50/50 stay put')).toBe('TCP/IP and 50/50 stay put');
   });
 
   it('redacts windows paths', () => {

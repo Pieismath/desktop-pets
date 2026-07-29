@@ -5,6 +5,7 @@ import type {
   EventMsg,
   HookPayload,
   Reaction,
+  RiskVerdict,
   SessionInfo,
 } from '@desktop-pets/shared';
 import type { IpcConnection } from './ipc-server.js';
@@ -26,6 +27,8 @@ export interface AgentSession {
   ended?: boolean;
   /** Alternates the two running rows so pacing looks alive. */
   runFlip?: boolean;
+  /** Undismissed risk alarm — sticky until the user dismisses it. */
+  alarm?: { ruleId: string; reason: string; detail: string; since: number };
 }
 
 export interface DecisionRequest {
@@ -33,16 +36,20 @@ export interface DecisionRequest {
   event: 'PreToolUse' | 'PermissionRequest';
   payload: HookPayload;
   respond: (decision: Decision, reason?: string) => void;
+  /** Risk verdict for PreToolUse requests, when a classifier is installed. */
+  verdict?: RiskVerdict;
 }
 
 export interface SessionManagerOptions {
   sanitize: (text: unknown) => string;
   onChange: () => void;
   /**
-   * Seam for the decision broker (stage 6) and risk classifier (stage 4).
+   * Seam for the decision broker (stage 6).
    * Default: immediately answer 'none' so Claude Code's own flow proceeds.
    */
   onDecisionRequest?: (req: DecisionRequest) => void;
+  /** Risk classifier (stage 4). Undefined → everything is 'none'. */
+  classify?: (call: { toolName: string; toolInput: Record<string, unknown> | undefined }) => RiskVerdict;
   now?: () => number;
 }
 
@@ -212,8 +219,28 @@ export class SessionManager {
         s.status = next;
         delete s.waitingSince;
         this.setBubble(s, undefined);
+
+        const verdict = this.opts.classify?.({
+          toolName: msg.payload.tool_name ?? '',
+          toolInput: msg.payload.tool_input,
+        });
+        if (verdict && verdict.level === 'alarm') {
+          const command = msg.payload.tool_input?.['command'] ?? msg.payload.tool_input?.['file_path'] ?? '';
+          s.alarm = {
+            ruleId: verdict.ruleId ?? 'unknown',
+            reason: verdict.reason ?? 'Risky operation',
+            detail: this.opts.sanitize(command),
+            since: this.now(),
+          };
+        }
         if (msg.wantsDecision) {
-          this.dispatchDecision({ session: s, event: 'PreToolUse', payload: msg.payload, respond });
+          this.dispatchDecision({
+            session: s,
+            event: 'PreToolUse',
+            payload: msg.payload,
+            respond,
+            ...(verdict ? { verdict } : {}),
+          });
           return; // onChange fires via dispatch path
         }
         break;
@@ -259,6 +286,7 @@ export class SessionManager {
         break;
       case 'SessionEnd': {
         s.ended = true;
+        delete s.alarm;
         this.setBubble(s, undefined);
         const timer = this.sayTimers.get(s.key);
         if (timer) clearTimeout(timer);
@@ -279,6 +307,14 @@ export class SessionManager {
       req.respond('none');
     }
     this.opts.onChange();
+  }
+
+  dismissAlarm(key: string): void {
+    const s = this.sessions.get(key);
+    if (s?.alarm) {
+      delete s.alarm;
+      this.opts.onChange();
+    }
   }
 
   onDisconnect(_conn: IpcConnection): void {
