@@ -168,6 +168,30 @@ Also fixed here: macOS caps `AF_UNIX` socket paths at ~104 bytes, so
 when the data dir would exceed the budget (clients always read the actual
 path from `ipc.json`, so only the host computes it).
 
+### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
+
+The "is the agent's own app focused?" test compares the frontmost bundle id
+(`lsappinfo`) against the session's app. The session's app is
+`__CFBundleIdentifier` when the hook inherited it (set by LaunchServices),
+else a `TERM_PROGRAM → bundle id` lookup table (iTerm→`com.googlecode.iterm2`,
+etc.). Bundle id wins when both are present. Verified live end-to-end with
+`DESKTOP_PETS_FAKE_FOCUS`/`DESKTOP_PETS_FAKE_IDLE` test seams: agent-focused →
+`animate` (no bubble), other-app → `bubble`, idle > notifyIdleSec → `notify`
+(OS notification fired). Limitation: window/tab-level focus has no
+permission-free API, so two agents in two tabs of the *same* terminal both
+count as "agent app focused"; acceptable, and documented.
+
+### D14 — Escalation gates the bubble; alarm bypasses the ladder
+
+Two channels: the **ambient sprite state** always renders (this is "silent
+animation"), while **announcements** (success/blocked/error) route through the
+ladder — the host suppresses the speech bubble unless the tier is
+`bubble`+ and only fires an OS notification at `notify`+. Alarms are the one
+exception: they ignore the ladder *and* DND and are always maximally visible
+(brief §1.3 — "stop and look"), though an alarm while the user is away still
+also fires a notification. Thresholds, the DND auto-app list, and the
+reaction→sprite map all live in one hot-reloading `config.json`.
+
 ### D10 — Risk rules: precision over recall, with a safelist
 
 `rm -rf` must fire (brief §6), but `rm -rf node_modules` all day would kill

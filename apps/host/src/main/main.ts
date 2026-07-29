@@ -1,17 +1,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Menu, app, dialog } from 'electron';
-import {
-  DEFAULT_REACTION_MAP,
-  classifyToolCall,
-  sanitizeSpeech,
-} from '@desktop-pets/shared';
+import { DEFAULT_REACTION_MAP, classifyToolCall, resolveReactionMap, sanitizeSpeech } from '@desktop-pets/shared';
 import type { PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
+import { ConfigStore } from './config.js';
+import {
+  computeTier,
+  tierFiresNotification,
+  tierQueuesDigest,
+  tierShowsBubble,
+  agentBundleId,
+} from './escalation.js';
 import { IpcServer } from './ipc-server.js';
+import { ElectronNotifier } from './notify.js';
 import { resolveActivePet } from './pets.js';
 import { PetWindow } from './petwindow.js';
+import { DndController, LsappinfoFocusProvider, PowerMonitorIdleProvider } from './providers.js';
 import { RiskConfigStore } from './risk-config.js';
-import type { AgentSession } from './sessions.js';
+import type { AgentSession, SurfaceMoment } from './sessions.js';
 import { SessionManager } from './sessions.js';
 import { runSmoke } from './smoke.js';
 import { StateStore } from './store.js';
@@ -21,16 +27,12 @@ const smokeMode = process.argv.includes('--smoke');
 const outArg = process.argv.find((a) => a.startsWith('--out='));
 const smokeOut = outArg ? outArg.slice('--out='.length) : path.join(process.cwd(), 'captures');
 const logArg = process.argv.find((a) => a.startsWith('--log-events='));
-// Debug: self-capture the pet window the first time an alarm renders.
 const alarmCaptureArg = process.argv.find((a) => a.startsWith('--capture-on-alarm='));
+// Debug: after the first surfaced moment, dump {vm, tier, notified} to a file.
+const stateCaptureArg = process.argv.find((a) => a.startsWith('--capture-state='));
 
 if (!smokeMode && !app.requestSingleInstanceLock()) {
   app.quit();
-}
-
-function spriteFor(reaction: Reaction, session: AgentSession | undefined): SpriteStateName {
-  if (reaction === 'running') return session?.runFlip ? 'running-left' : 'running-right';
-  return DEFAULT_REACTION_MAP[reaction];
 }
 
 function formatDuration(ms: number): string {
@@ -46,10 +48,37 @@ app.whenReady().then(async () => {
     if (process.platform === 'darwin') app.dock?.hide();
 
     const store = new StateStore(smokeMode);
+    const config = new ConfigStore(smokeMode);
     const active = resolveActivePet(store.get().activePetId);
     console.log(
       `[pets] active: ${active.pet.displayName} (${active.pet.id}) — ${active.pet.license} by ${active.pet.author}`,
     );
+
+    // Reaction → sprite-state map, user overrides validated against known names.
+    const resolved = resolveReactionMap(config.get().reactionMap);
+    for (const issue of resolved.issues) console.warn(`[config] reactionMap: ${issue.problem} ${issue.reaction}`);
+    let reactionMap = resolved.map;
+    const spriteFor = (reaction: Reaction, session: AgentSession | undefined): SpriteStateName => {
+      if (reaction === 'running') return session?.runFlip ? 'running-left' : 'running-right';
+      return reactionMap[reaction] ?? DEFAULT_REACTION_MAP[reaction];
+    };
+
+    // --- environment (all zero-permission, behind swappable interfaces) ---
+    let manualDnd = store.get().dndManual === true;
+    const focus = new LsappinfoFocusProvider();
+    const idle = new PowerMonitorIdleProvider();
+    const dnd = new DndController({ autoApps: config.get().dnd.autoApps, isManual: () => manualDnd });
+    const notifier = new ElectronNotifier();
+
+    const dndActive = (): boolean => dnd.isActive(focus.current());
+    const currentTier = () =>
+      computeTier({
+        idleSeconds: idle.seconds(),
+        focusedBundleId: focus.current(),
+        agentBundleId: agentBundleId(sessions.displaySession() ?? {}),
+        dnd: dndActive(),
+        thresholds: config.get().escalation,
+      });
 
     const win = new PetWindow({
       slot: 'home',
@@ -73,6 +102,7 @@ app.whenReady().then(async () => {
             break;
           case 'context-menu':
             Menu.buildFromTemplate([
+              { label: `Do Not Disturb`, type: 'checkbox', checked: manualDnd, click: () => toggleDnd() },
               { label: 'Wave', click: () => w.playOneShot('waving') },
               { type: 'separator' },
               { label: 'Quit Desktop Pets', click: () => app.quit() },
@@ -84,28 +114,30 @@ app.whenReady().then(async () => {
 
     const renderHome = (): void => {
       const session = sessions.displaySession();
+      const tier = currentTier();
       const vm: PetViewModel = {
         sheetUrl: active.sheetUrl,
         spriteState: session ? spriteFor(session.status, session) : 'idle',
         tag: session ? session.name : active.pet.displayName,
+        dnd: dndActive(),
       };
       if (session?.oneShot) {
         vm.oneShot = { state: spriteFor(session.oneShot.reaction, session), nonce: session.oneShot.nonce };
       }
-      if (session?.bubbleText) {
+      // Escalation gates the bubble: silent animation when the agent's own app
+      // is focused (or DND); a bubble only once we're allowed to be louder.
+      if (session?.bubbleText && tierShowsBubble(tier)) {
         vm.bubble = { text: session.bubbleText };
       }
       if (session?.waitingSince) {
         vm.badge = formatDuration(Date.now() - session.waitingSince);
       }
       if (session?.alarm) {
-        // Risk alarm outranks everything else on screen (sticky until dismissed).
+        // Alarm outranks the ladder and DND: always maximally visible.
         vm.spriteState = 'alarm';
         vm.alarm = true;
         vm.bubble = {
-          text: session.alarm.detail
-            ? `${session.alarm.reason} — ${session.alarm.detail}`
-            : session.alarm.reason,
+          text: session.alarm.detail ? `${session.alarm.reason} — ${session.alarm.detail}` : session.alarm.reason,
         };
         vm.badge = formatDuration(Date.now() - session.alarm.since);
         delete vm.oneShot;
@@ -120,21 +152,67 @@ app.whenReady().then(async () => {
     };
     let alarmCaptured = false;
 
+    const notifications: Array<{ title: string; body: string }> = [];
+    const onSurface = (moment: SurfaceMoment): void => {
+      // Alarms are surfaced on-screen already; still notify when the user is away.
+      const tier = currentTier();
+      let notified = false;
+      if (moment.kind === 'risky') {
+        if (tierFiresNotification(tier) || tier === 'silent') {
+          notifier.fire(moment.title, moment.body);
+          notified = true;
+        }
+      } else {
+        if (tierFiresNotification(tier)) {
+          notifier.fire(moment.title, moment.body);
+          notified = true;
+        }
+        if (tierQueuesDigest(tier)) digest.push({ at: Date.now(), ...moment, session: undefined });
+      }
+      if (notified) notifications.push({ title: moment.title, body: moment.body });
+      if (stateCaptureArg) {
+        // renderHome() runs right after this via onChange; capture the settled VM.
+        setTimeout(() => {
+          fs.writeFileSync(
+            stateCaptureArg.slice('--capture-state='.length),
+            JSON.stringify({ tier, notified, vm: win.getVM(), notifications, moment: { kind: moment.kind } }, null, 2),
+          );
+        }, 60);
+      }
+    };
+
+    // Minimal in-memory digest collector; stage 7 replaces with bounded history.
+    const digest: Array<{ at: number; kind: string; title: string; body: string; session: undefined }> = [];
+
     const riskConfig = new RiskConfigStore();
     const sessions = new SessionManager({
       sanitize: (t) => sanitizeSpeech(t),
       onChange: renderHome,
       classify: (call) => classifyToolCall(call, riskConfig.get()),
+      onSurface,
+    });
+
+    const toggleDnd = (): void => {
+      manualDnd = !manualDnd;
+      store.update({ dndManual: manualDnd });
+      console.log(`[dnd] manual ${manualDnd ? 'on' : 'off'}`);
+      renderHome();
+      refreshTray();
+    };
+
+    focus.start(() => renderHome());
+    config.watch((next) => {
+      dnd.setAutoApps(next.dnd.autoApps);
+      const r = resolveReactionMap(next.reactionMap);
+      reactionMap = r.map;
+      renderHome();
     });
 
     const eventLog = logArg ? logArg.slice('--log-events='.length) : undefined;
     const ipc = new IpcServer({
       onMessage: (conn, msg) => {
         if (eventLog) {
-          fs.appendFileSync(
-            eventLog,
-            JSON.stringify({ at: new Date().toISOString(), role: conn.role, msg }) + '\n',
-          );
+          fs.appendFileSync(eventLog, JSON.stringify({ at: new Date().toISOString(), role: conn.role, msg }) + '\n');
         }
         sessions.handleMessage(conn, msg);
       },
@@ -143,29 +221,34 @@ app.whenReady().then(async () => {
     await ipc.start();
     console.log('[ipc] listening');
 
-    // Refresh blocked-duration badges + drop dead sessions.
     setInterval(() => {
       sessions.sweepStale(30 * 60_000);
-      if (sessions.displaySession()?.waitingSince) renderHome();
+      if (sessions.displaySession()?.waitingSince || sessions.displaySession()?.alarm) renderHome();
     }, 10_000);
 
-    app.on('will-quit', () => ipc.stop());
+    app.on('will-quit', () => {
+      focus.stop();
+      ipc.stop();
+    });
 
+    let refreshTray = (): void => {};
     if (smokeMode) {
       await runSmoke(win, smokeOut);
     } else {
-      createTray({ onQuit: () => win.destroy() });
+      const tray = createTray({
+        isDnd: () => manualDnd,
+        onToggleDnd: toggleDnd,
+        onQuit: () => win.destroy(),
+      });
+      refreshTray = () => tray.refresh();
     }
   } catch (err) {
     console.error(err);
-    if (!smokeMode) {
-      dialog.showErrorBox('Desktop Pets failed to start', (err as Error).message);
-    }
+    if (!smokeMode) dialog.showErrorBox('Desktop Pets failed to start', (err as Error).message);
     app.exit(1);
   }
 });
 
-// Background/tray app: closing every window must not quit outside smoke mode.
 app.on('window-all-closed', () => {
   if (smokeMode) app.quit();
 });

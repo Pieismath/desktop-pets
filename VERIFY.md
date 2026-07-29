@@ -59,3 +59,23 @@ running, `sudo rm -rf /var/data/uploads` fired the red alarm (path shown as
       (or the bubble's Deny) dismisses it.
 - [ ] Add a custom rule (e.g. block `npm publish`) and confirm it fires; set
       `"enabled": false` on a default rule and confirm it stops firing.
+
+## Stage 5 — escalation
+
+The ladder is a pure, exhaustively-tested function, and all rungs were driven
+live (host + real hook runner, with `DESKTOP_PETS_FAKE_FOCUS`/`FAKE_IDLE` test
+seams): agent-app-focused → `animate` (no bubble); other-app → `bubble`;
+idle > 2 min → `notify` (OS notification fired). To reproduce by hand:
+
+- [ ] With Claude working in your terminal and that terminal focused, the pet
+      animates **silently** (no bubble) on ordinary events.
+- [ ] Switch to another app (Slack, browser): the same events now pop a
+      **speech bubble**.
+- [ ] Walk away ~2 min, then trigger an event (finish a task / hit a
+      permission prompt): a real **macOS notification** fires. (Grant
+      notification permission the first time.)
+- [ ] Toggle **Do Not Disturb** (🐾 menu-bar → Do Not Disturb, or right-click
+      the pet). The tray shows 🐾🌙 and a `dnd` moon appears on the pet;
+      non-alarm bubbles/notifications go silent, but an `alarm` still shows.
+- [ ] Join a Zoom/Teams/Meet call (bring it frontmost): DND auto-engages while
+      it's frontmost (edit `config.json` → `dnd.autoApps` to tune the list).

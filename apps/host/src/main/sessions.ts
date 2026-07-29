@@ -40,6 +40,16 @@ export interface DecisionRequest {
   verdict?: RiskVerdict;
 }
 
+/** A discrete moment worth surfacing through the escalation ladder. */
+export type SurfaceKind = 'success' | 'blocked' | 'error' | 'risky';
+
+export interface SurfaceMoment {
+  kind: SurfaceKind;
+  session: AgentSession;
+  title: string;
+  body: string;
+}
+
 export interface SessionManagerOptions {
   sanitize: (text: unknown) => string;
   onChange: () => void;
@@ -50,6 +60,8 @@ export interface SessionManagerOptions {
   onDecisionRequest?: (req: DecisionRequest) => void;
   /** Risk classifier (stage 4). Undefined → everything is 'none'. */
   classify?: (call: { toolName: string; toolInput: Record<string, unknown> | undefined }) => RiskVerdict;
+  /** Discrete moments to route through the escalation ladder (stage 5). */
+  onSurface?: (moment: SurfaceMoment) => void;
   now?: () => number;
 }
 
@@ -145,6 +157,10 @@ export class SessionManager {
     s.oneShot = { reaction, nonce: this.nonce };
   }
 
+  private surface(kind: SurfaceKind, s: AgentSession, title: string, body: string): void {
+    this.opts.onSurface?.({ kind, session: s, title, body });
+  }
+
   private setBubble(s: AgentSession, text: string | undefined, ttlMs?: number): void {
     const timer = this.sayTimers.get(s.key);
     if (timer) {
@@ -226,12 +242,10 @@ export class SessionManager {
         });
         if (verdict && verdict.level === 'alarm') {
           const command = msg.payload.tool_input?.['command'] ?? msg.payload.tool_input?.['file_path'] ?? '';
-          s.alarm = {
-            ruleId: verdict.ruleId ?? 'unknown',
-            reason: verdict.reason ?? 'Risky operation',
-            detail: this.opts.sanitize(command),
-            since: this.now(),
-          };
+          const detail = this.opts.sanitize(command);
+          const reason = verdict.reason ?? 'Risky operation';
+          s.alarm = { ruleId: verdict.ruleId ?? 'unknown', reason, detail, since: this.now() };
+          this.surface('risky', s, `⚠︎ ${s.name}`, detail ? `${reason} — ${detail}` : reason);
         }
         if (msg.wantsDecision) {
           this.dispatchDecision({
@@ -252,10 +266,12 @@ export class SessionManager {
         this.oneShot(s, 'error');
         break;
       case 'PermissionRequest': {
+        const wasWaiting = s.status === 'waiting';
         s.status = 'waiting';
         s.waitingSince = s.waitingSince ?? this.now();
         const tool = msg.payload.tool_name ?? 'a tool';
         this.setBubble(s, this.opts.sanitize(`Needs permission: ${tool}`));
+        if (!wasWaiting) this.surface('blocked', s, `${s.name} is blocked`, `Needs permission: ${tool}`);
         if (msg.wantsDecision) {
           this.dispatchDecision({ session: s, event: 'PermissionRequest', payload: msg.payload, respond });
           return;
@@ -279,11 +295,15 @@ export class SessionManager {
         delete s.waitingSince;
         this.oneShot(s, 'success');
         this.setBubble(s, undefined);
+        this.surface('success', s, `${s.name} finished`, 'Task complete');
         break;
-      case 'StopFailure':
+      case 'StopFailure': {
         s.status = 'error';
-        this.setBubble(s, this.opts.sanitize(`Turn failed: ${msg.payload.error_type ?? 'unknown error'}`));
+        const why = `Turn failed: ${msg.payload.error_type ?? 'unknown error'}`;
+        this.setBubble(s, this.opts.sanitize(why));
+        this.surface('error', s, `${s.name} failed`, why);
         break;
+      }
       case 'SessionEnd': {
         s.ended = true;
         delete s.alarm;
