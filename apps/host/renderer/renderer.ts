@@ -10,9 +10,11 @@ interface Rect {
 interface Layout {
   width: number;
   height: number;
+  scale: number;
   sprite: Rect;
   bubble: Rect;
   tag: { y: number; h: number };
+  feetOffset: number;
 }
 
 interface InitPayload {
@@ -74,6 +76,9 @@ function injectKeyframes(specs: readonly SpriteStateSpec[]): void {
 
 function applyLayout(layout: Layout): void {
   const root = document.documentElement.style;
+  root.setProperty('--pet-scale', String(layout.scale));
+  root.setProperty('--sprite-w', `${layout.sprite.w}px`);
+  root.setProperty('--sprite-h', `${layout.sprite.h}px`);
   root.setProperty('--sprite-x', `${layout.sprite.x}px`);
   root.setProperty('--sprite-y', `${layout.sprite.y}px`);
   root.setProperty('--bubble-x', `${layout.bubble.x}px`);

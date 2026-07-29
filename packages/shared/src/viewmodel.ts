@@ -31,14 +31,29 @@ export type PetAction =
 
 /**
  * Window layout constants — single source of truth for both the main
- * process (hover hot-rects for click-through) and the renderer (CSS vars).
+ * process (hover hot-rects, Dock parking) and the renderer (CSS vars).
+ *
+ * The sprite is drawn at half the sheet's native frame size: art is authored
+ * as pixels upscaled 4x into the 192x208 frame, so displaying at 0.5 lands on
+ * an exact 2x pixel grid — crisp, and small enough to sit on the Dock.
  */
+export const PET_SCALE = 0.5;
+
+const SPRITE_W = Math.round(192 * PET_SCALE);
+const SPRITE_H = Math.round(208 * PET_SCALE);
+
 export const PET_WINDOW = {
-  width: 260,
-  height: 330,
-  sprite: { x: 34, y: 98, w: 192, h: 208 },
-  bubble: { x: 4, y: 2, w: 252, h: 118 },
-  tag: { y: 310, h: 20 },
+  width: 220,
+  height: 214,
+  scale: PET_SCALE,
+  sprite: { x: Math.round((220 - SPRITE_W) / 2), y: 92, w: SPRITE_W, h: SPRITE_H },
+  bubble: { x: 2, y: 0, w: 216, h: 86 },
+  tag: { y: 194, h: 18 },
+  /**
+   * Distance from the window's top to the character's feet. The art places
+   * the baseline at logical y=46 of 52, i.e. 46/52 of the frame height.
+   */
+  feetOffset: 92 + Math.round((46 / 52) * SPRITE_H),
 } as const;
 
 /** Everything the pet window needs to render. Pushed whole; renderer is dumb. */

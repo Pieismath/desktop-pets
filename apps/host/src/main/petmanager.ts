@@ -13,6 +13,10 @@ export interface ManagedWindow {
   hide(): void;
   isVisible(): boolean;
   center(): { x: number; y: number };
+  getX(): number;
+  setX(x: number): void;
+  walkBounds(): { minX: number; maxX: number };
+  parkOnDock(): void;
   capture(): Promise<Buffer>;
   readonly whenReady: Promise<void>;
   readonly consoleErrors: string[];

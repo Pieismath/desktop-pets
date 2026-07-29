@@ -1,0 +1,9 @@
+{
+  "id": "ember",
+  "displayName": "Ember",
+  "description": "A small pixel critter who sits on your Dock and watches what your agents are about to run.",
+  "spritesheet": "spritesheet.webp",
+  "license": "CC0-1.0",
+  "author": "Desktop Pets contributors",
+  "generator": "procedural pixel art, @desktop-pets/create-pet (drawn in code by Claude, Anthropic)"
+}

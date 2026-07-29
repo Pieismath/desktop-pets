@@ -91,6 +91,7 @@ export function resolveActivePet(preferredId: string | undefined): LoadedPet {
   }
   const found =
     (preferredId && pets.find((p) => p.pet.id === preferredId)) ||
+    pets.find((p) => p.pet.id === 'ember') ||
     pets.find((p) => p.pet.id === 'pip') ||
     pets[0];
   if (!found) {

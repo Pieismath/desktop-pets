@@ -38,6 +38,17 @@ class FakeWindow implements ManagedWindow {
   center(): { x: number; y: number } {
     return { x: 0, y: 0 };
   }
+  x = 0;
+  getX(): number {
+    return this.x;
+  }
+  setX(x: number): void {
+    this.x = x;
+  }
+  walkBounds(): { minX: number; maxX: number } {
+    return { minX: 0, maxX: 400 };
+  }
+  parkOnDock(): void {}
   destroy(): void {
     this.destroyed = true;
   }

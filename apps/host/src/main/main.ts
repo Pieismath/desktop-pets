@@ -12,6 +12,7 @@ import { focusApp } from './focusapp.js';
 import { HistoryStore } from './history.js';
 import { IpcServer } from './ipc-server.js';
 import { ElectronNotifier } from './notify.js';
+import { Patrol, type WalkDirection } from './patrol.js';
 import { PetManager, type PetKey } from './petmanager.js';
 import { resolveActivePet } from './pets.js';
 import { DndController, LsappinfoFocusProvider, PowerMonitorIdleProvider } from './providers.js';
@@ -133,12 +134,20 @@ app.whenReady().then(async () => {
       digestWindow.toggle(renderDigestHtml(summary, Date.now()), near);
     };
 
+    // Pets that are currently strolling along the Dock, and which way.
+    const walking = new Map<PetKey, WalkDirection>();
+
     const buildVM = (session: AgentSession): PetViewModel => {
       const tier = tierFor(session);
       const pending = broker.get(session.key);
+      const stroll = walking.get(session.key);
       const vm: PetViewModel = {
         sheetUrl: active.sheetUrl,
-        spriteState: spriteFor(session.status, session),
+        spriteState: stroll
+          ? stroll === 'left'
+            ? 'running-left'
+            : 'running-right'
+          : spriteFor(session.status, session),
         tag: session.name,
         dnd: dndActive(),
       };
@@ -193,12 +202,25 @@ app.whenReady().then(async () => {
       const activeSessions = sessions.list().sort((a, b) => a.firstSeen - b.firstSeen);
       const owned = pets.reconcile(activeSessions.map((s) => s.key));
       if (activeSessions.length === 0) {
-        pets.render('home', { sheetUrl: active.sheetUrl, spriteState: 'idle', tag: active.pet.displayName, dnd: dndActive() });
+        const stroll = walking.get('home');
+        // No tag on the lone idle pet — the label would just cover the Dock.
+        pets.render('home', {
+          sheetUrl: active.sheetUrl,
+          spriteState: stroll ? (stroll === 'left' ? 'running-left' : 'running-right') : 'idle',
+          dnd: dndActive(),
+        });
+        syncPatrols(['home']);
         return;
       }
+      // Identity labels only earn their space once more than one pet is out.
+      const showTags = owned.length > 1;
       for (const s of activeSessions) {
-        if (owned.includes(s.key)) pets.render(s.key, buildVM(s));
+        if (!owned.includes(s.key)) continue;
+        const vm = buildVM(s);
+        if (!showTags && !vm.bubble) delete vm.tag;
+        pets.render(s.key, vm);
       }
+      syncPatrols(['home', ...owned]);
       if (dumpPetsArg) {
         setTimeout(() => fs.writeFileSync(dumpPetsArg.slice('--dump-pets='.length), JSON.stringify(pets.inventory(), null, 2)), 60);
       }
@@ -227,6 +249,56 @@ app.whenReady().then(async () => {
       maxPets: MAX_PETS,
       onAction: (key: PetKey, action: PetAction) => handlePetAction(key, action),
     });
+
+    // ---- idle wandering along the Dock ----
+    const patrols = new Map<PetKey, Patrol>();
+
+    /** A pet only strolls when it has nothing to show you. */
+    const canWalk = (key: PetKey): boolean => {
+      const win = pets.windowFor(key);
+      if (!win || !win.isVisible()) return false;
+      if (key === 'home') return sessions.list().length === 0;
+      const s = sessions.get(key);
+      if (!s) return false;
+      return !s.alarm && !s.waitingSince && !s.bubbleText && !broker.has(key) && s.status === 'idle';
+    };
+
+    const syncPatrols = (keys: PetKey[]): void => {
+      for (const key of keys) {
+        if (patrols.has(key)) continue;
+        const p = new Patrol(
+          {
+            canWalk: () => canWalk(key),
+            getX: () => pets.windowFor(key)?.getX() ?? 0,
+            setX: (x) => pets.windowFor(key)?.setX(x),
+            bounds: () => pets.windowFor(key)?.walkBounds() ?? { minX: 0, maxX: 0 },
+            onWalk: (dir) => {
+              if (dir) walking.set(key, dir);
+              else walking.delete(key);
+              renderAll();
+            },
+          },
+          {
+            // Env overrides let the wander cadence be tuned (and tested) live.
+            ...(process.env['DESKTOP_PETS_PATROL_MIN_MS']
+              ? { minPauseMs: Number(process.env['DESKTOP_PETS_PATROL_MIN_MS']) }
+              : {}),
+            ...(process.env['DESKTOP_PETS_PATROL_MAX_MS']
+              ? { maxPauseMs: Number(process.env['DESKTOP_PETS_PATROL_MAX_MS']) }
+              : {}),
+          },
+        );
+        p.start();
+        patrols.set(key, p);
+      }
+      for (const [key, p] of [...patrols]) {
+        if (!keys.includes(key)) {
+          p.stop();
+          patrols.delete(key);
+          walking.delete(key);
+        }
+      }
+    };
 
     const handlePetAction = (key: PetKey, action: PetAction): void => {
       const session = key === 'home' ? sessions.displaySession() : sessions.get(key);
@@ -374,6 +446,7 @@ app.whenReady().then(async () => {
 
     app.on('will-quit', () => {
       broker.releaseAll('host quitting');
+      for (const p of patrols.values()) p.stop();
       digestWindow.close();
       focus.stop();
       ipc.stop();

@@ -119,6 +119,24 @@ Verified live (host + real events): the digest panel showed **Blocked now**
       `~/Library/Application Support/desktop-pets/history.jsonl` stays bounded
       and never leaves the machine (no network calls anywhere in the app).
 
+## Look and placement (Ember)
+
+Verified live: Ember stands with its feet exactly on the Dock's top edge
+(Dock top 898 → window y 714), and patrol was captured walking left, settling
+front-facing, then walking back right along the Dock.
+
+- [ ] `pnpm start` — a small pixel critter stands on the Dock, roughly the
+      height of a Dock icon, crisp (no blurring/anti-aliasing).
+- [ ] Leave it alone: every 7–20s it strolls a short way along the Dock in
+      profile, then settles front-facing. It should never wander while it has
+      a bubble, an alarm, or a pending permission.
+- [ ] Drag it somewhere else — it stays where you put it and remembers that
+      position across restarts.
+- [ ] Prefer the old vector pet, or your own? `pnpm start -- --pet=pip`, or
+      set `activePetId` in `state.json`. To resize, change `PET_SCALE` in
+      `packages/shared/src/viewmodel.ts` (0.5 keeps the pixel grid exact;
+      0.75 or 1.0 also work).
+
 ## Stage 8 — create-pet CLI
 
 Verified live: a single test image produced a conformant 8×10 animated sheet

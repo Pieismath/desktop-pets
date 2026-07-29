@@ -20,10 +20,10 @@ body {
 
 #sprite-wrap {
   position: absolute;
-  left: var(--sprite-x, 34px);
-  top: var(--sprite-y, 98px);
-  width: 192px;
-  height: 208px;
+  left: var(--sprite-x, 62px);
+  top: var(--sprite-y, 92px);
+  width: var(--sprite-w, 96px);
+  height: var(--sprite-h, 104px);
   cursor: grab;
 }
 
@@ -32,21 +32,25 @@ body {
   height: 208px;
   background-repeat: no-repeat;
   background-size: 1536px 2080px;
+  /* Keep pixel art crisp — never let the compositor smooth it. */
+  image-rendering: pixelated;
+  transform: scale(var(--pet-scale, 0.5));
+  transform-origin: top left;
 }
 
 #tag {
   position: absolute;
-  top: var(--tag-y, 310px);
+  top: var(--tag-y, 194px);
   left: 50%;
   transform: translateX(-50%);
   background: rgba(22, 26, 34, 0.88);
   color: #eaf2f4;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
-  padding: 4px 11px;
-  border-radius: 10px;
-  max-width: 210px;
+  padding: 3px 9px;
+  border-radius: 9px;
+  max-width: 190px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

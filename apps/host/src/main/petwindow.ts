@@ -2,6 +2,7 @@ import path from 'node:path';
 import { BrowserWindow, app, ipcMain, screen } from 'electron';
 import { PET_WINDOW, SPRITE_STATES } from '@desktop-pets/shared';
 import type { PetAction, PetViewModel, SpriteStateName } from '@desktop-pets/shared';
+import { dockStrip, dockStripForPoint, type DockStrip } from './dock.js';
 import type { SavedPosition, StateStore } from './store.js';
 
 export interface PetWindowOptions {
@@ -105,9 +106,40 @@ export class PetWindow {
       const y = Math.min(Math.max(display.bounds.y + saved.dy, wa.y), wa.y + wa.height - 120);
       return [Math.round(x), Math.round(y)];
     }
-    const x = wa.x + wa.width - PET_WINDOW.width - 24 - this.opts.slotIndex * (PET_WINDOW.width - 30);
-    const y = wa.y + wa.height - PET_WINDOW.height + 4;
+    // Fresh pets stand on the Dock, offset per slot so several don't overlap.
+    const strip = dockStrip(display);
+    const y = this.dockY(strip);
+    const x = wa.x + wa.width * 0.62 - PET_WINDOW.width / 2 + this.opts.slotIndex * 96;
     return [Math.round(x), Math.round(y)];
+  }
+
+  /** Window y that puts the character's feet on top of the Dock. */
+  private dockY(strip: DockStrip): number {
+    return Math.round(strip.top - PET_WINDOW.feetOffset);
+  }
+
+  /** Re-park on the Dock of whichever display the pet currently sits on. */
+  parkOnDock(): void {
+    if (this.win.isDestroyed()) return;
+    const { x } = this.winPos();
+    const strip = dockStripForPoint({ x: x + PET_WINDOW.width / 2, y: this.winPos().y });
+    this.win.setPosition(Math.round(x), this.dockY(strip), false);
+  }
+
+  getX(): number {
+    return this.winPos().x;
+  }
+
+  setX(x: number): void {
+    if (this.win.isDestroyed()) return;
+    this.win.setPosition(Math.round(x), this.winPos().y, false);
+  }
+
+  /** Patrol bounds along the Dock the pet is standing on. */
+  walkBounds(): { minX: number; maxX: number } {
+    const p = this.winPos();
+    const strip = dockStripForPoint({ x: p.x + PET_WINDOW.width / 2, y: p.y });
+    return { minX: strip.minX - PET_WINDOW.sprite.x, maxX: strip.maxX - PET_WINDOW.width + PET_WINDOW.sprite.x };
   }
 
   handleInit(): { states: typeof SPRITE_STATES; layout: typeof PET_WINDOW; vm: PetViewModel } {

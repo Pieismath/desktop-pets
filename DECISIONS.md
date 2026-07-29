@@ -233,6 +233,36 @@ disk after. License + author are gathered from flags or (on a TTY) prompts,
 and the tool refuses to emit without them — no escape hatch. A `--pet=<id>`
 host flag selects which installed pet is active.
 
+### D19 — Pixel art, Dock-parked, half-scale (replaces the vector default)
+
+Feedback: the smooth vector blob (Pip) read wrong; the wanted look is chunky
+pixel art, small, walking along the Dock. Three changes, none of which touch
+the locked sprite format:
+
+- **Art**: new default pet **Ember**, drawn on a 48×52 *logical* pixel grid
+  and upscaled ×4 (nearest-neighbour) into the 192×208 frame. The sheet stays
+  conformant, so pixel and vector pets coexist. `image-rendering: pixelated`
+  in the renderer, and `kernel: 'nearest'` in `composeSheetWebp`, keep it
+  crisp end to end. Ember is original, CC0. Pip is kept as an alternate.
+- **Two views**: idle/working/etc. are front-facing; the two walk rows are a
+  **side profile** (`drawEmberSide`) so travel actually reads as travel.
+- **Size + placement**: displayed at `PET_SCALE = 0.5`. Because the art is
+  pixels upscaled ×4, half-scale lands on an exact 2× pixel grid — crisp, and
+  ~80pt tall, comparable to a Dock icon. The window parks so the character's
+  feet sit on the Dock's top edge, derived from `bounds` minus `workArea`
+  (no permissions; auto-hidden Docks fall back to the work-area bottom).
+  Verified live: Dock top 898, window y 714, feetOffset 184.
+- **Patrol**: when a pet has nothing to report it strolls a short way along
+  the Dock every 7–20s and settles again, using the walk rows and turning to
+  face its direction. Anything worth showing (blocked, alarmed, speaking)
+  stops the stroll immediately so the pet never wanders off mid-message.
+  Unit-tested including the interrupt and edge-bounce paths.
+
+Note on characters: shipping Mario/Pokémon-style *characters* remains
+off-limits (§2) — that is the licensing stance, and unchanged. The pixel-art
+*style* was always available; the earlier vector look was my call, not a
+constraint.
+
 ### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
 
 The "is the agent's own app focused?" test compares the frontmost bundle id

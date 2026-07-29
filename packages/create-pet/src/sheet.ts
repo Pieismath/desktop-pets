@@ -18,7 +18,15 @@ export async function composeSheetWebp(cells: FrameCell[]): Promise<Buffer> {
   }
   const composites = await Promise.all(
     cells.map(async (c) => {
-      const png = await sharp(c.input).resize(frameWidth, frameHeight, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+      // `nearest` so pixel art is never smoothed on its way into the sheet.
+      const png = await sharp(c.input)
+        .resize(frameWidth, frameHeight, {
+          fit: 'contain',
+          kernel: 'nearest',
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer();
       return { input: png, left: c.col * frameWidth, top: c.row * frameHeight };
     }),
   );
