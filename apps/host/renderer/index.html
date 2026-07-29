@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src file:; style-src file:; img-src file: data:"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>pet</title>
+  </head>
+  <body>
+    <div id="stage">
+      <div id="bubble" hidden>
+        <div id="bubble-text"></div>
+        <div id="bubble-buttons"></div>
+        <div id="bubble-countdown" hidden></div>
+      </div>
+      <div id="sprite-wrap">
+        <div id="sprite"></div>
+        <div id="badge" hidden></div>
+        <div id="dnd" hidden></div>
+      </div>
+      <div id="tag" hidden></div>
+    </div>
+    <script type="module" src="../dist/renderer/renderer.js"></script>
+  </body>
+</html>

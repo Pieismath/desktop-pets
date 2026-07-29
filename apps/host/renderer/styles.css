@@ -1,0 +1,183 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html,
+body {
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+#sprite-wrap {
+  position: absolute;
+  left: var(--sprite-x, 34px);
+  top: var(--sprite-y, 98px);
+  width: 192px;
+  height: 208px;
+  cursor: grab;
+}
+
+#sprite {
+  width: 192px;
+  height: 208px;
+  background-repeat: no-repeat;
+  background-size: 1536px 2080px;
+}
+
+#tag {
+  position: absolute;
+  top: var(--tag-y, 310px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(22, 26, 34, 0.88);
+  color: #eaf2f4;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 11px;
+  border-radius: 10px;
+  max-width: 210px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#badge {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  background: #ffb648;
+  color: #2c1c00;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 9px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+#dnd {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  /* crescent moon */
+  background: radial-gradient(circle at 65% 35%, transparent 0 55%, #b8c4ff 56%);
+}
+
+#bubble {
+  position: absolute;
+  left: var(--bubble-x, 4px);
+  top: var(--bubble-y, 2px);
+  width: var(--bubble-w, 252px);
+  background: rgba(26, 30, 40, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f2f5f9;
+  border-radius: 12px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+#bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid rgba(26, 30, 40, 0.94);
+}
+
+#bubble-text {
+  word-break: break-word;
+  max-height: 52px;
+  overflow: hidden;
+}
+
+#bubble-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#bubble-buttons:empty {
+  display: none;
+}
+
+#bubble-buttons button {
+  border: 0;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.approve {
+  background: #2ecc71;
+  color: #05230f;
+}
+
+button.deny {
+  background: #e74c3c;
+  color: #fff;
+}
+
+button.focus {
+  background: #3498db;
+  color: #fff;
+}
+
+button.plain {
+  background: #4a5568;
+  color: #fff;
+}
+
+#bubble-buttons button:hover {
+  filter: brightness(1.12);
+}
+
+#bubble-countdown {
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: #9fb2c8;
+}
+
+body.alarm #sprite-wrap {
+  animation: pet-shake 0.5s infinite;
+  filter: drop-shadow(0 0 16px rgba(255, 70, 50, 0.8));
+}
+
+@keyframes pet-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
