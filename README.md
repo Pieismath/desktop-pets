@@ -72,6 +72,15 @@ node packages/hooks/dist/installer.js install
 node packages/hooks/dist/installer.js uninstall
 ```
 
+Make your own pet from a single character image (prompts for the required
+`license` and `author`, refuses without them, validates the 8×10 grid):
+
+```sh
+node packages/create-pet/dist/bin.js from-image character.png \
+  --id my-pet --name "My Pet" --license CC-BY-4.0 --author "You" --out ./my-pet
+node packages/create-pet/dist/bin.js validate ./my-pet
+```
+
 ## Sprite format
 
 One `.webp`, 8 columns × 10 rows, 192×208 per frame, one row per state:

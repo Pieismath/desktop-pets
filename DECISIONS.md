@@ -216,6 +216,23 @@ the blocked-duration badge counts up, a CSS attention-pulse grows at 2 min
 (urgency 1) and 10 min (urgency 2), and a still-blocked session re-notifies at
 most every 5 min while the user is away, with the growing wait time.
 
+### D18 — create-pet animates a single image via the shared motion vocabulary
+
+The brief asks for "character image in → conformant spritesheet out", but one
+image is not 80 frames of hand-drawn animation. Rather than fake it, the CLI
+factors Pip's motion out of its drawn body (`frameAnimation()` →
+offset/lean/squash + state tint + frame-space overlay decorations) and applies
+that exact vocabulary to the user's image with sharp: the character bobs when
+idle, leans with motion dashes when running, sparkles at the jump peak,
+desaturates to grey when "failed", and gets a red wash + warning sign when
+"alarm". Verified live: a purple star-bellied test creature produced a
+conformant 8×10 / 192×208 sheet that loaded and passed the full smoke test.
+`from-sheet` and `validate` cover users who bring their own art. Both output
+paths validate geometry AND provenance before writing, and re-validate on
+disk after. License + author are gathered from flags or (on a TTY) prompts,
+and the tool refuses to emit without them — no escape hatch. A `--pet=<id>`
+host flag selects which installed pet is active.
+
 ### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
 
 The "is the agent's own app focused?" test compares the frontmost bundle id

@@ -34,6 +34,7 @@ const autoDecideArg = process.argv.find((a) => a.startsWith('--auto-decide='));
 // Debug: write the live pet inventory (one entry per concurrent session pet).
 const dumpPetsArg = process.argv.find((a) => a.startsWith('--dump-pets='));
 const autoDigestArg = process.argv.find((a) => a.startsWith('--auto-digest='));
+const petArg = process.argv.find((a) => a.startsWith('--pet='));
 const capturePetsArg = process.argv.find((a) => a.startsWith('--capture-pets='));
 const capturePetsDir = capturePetsArg ? capturePetsArg.slice('--capture-pets='.length) : undefined;
 
@@ -69,7 +70,8 @@ app.whenReady().then(async () => {
 
     const store = new StateStore(smokeMode);
     const config = new ConfigStore(smokeMode);
-    const active = resolveActivePet(store.get().activePetId);
+    const preferredPetId = petArg ? petArg.slice('--pet='.length) : store.get().activePetId;
+    const active = resolveActivePet(preferredPetId);
     console.log(
       `[pets] active: ${active.pet.displayName} (${active.pet.id}) — ${active.pet.license} by ${active.pet.author}`,
     );

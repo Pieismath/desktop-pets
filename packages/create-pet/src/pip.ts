@@ -329,6 +329,57 @@ function poseFor(state: SpriteStateName, i: number, frames: number): Pose {
   }
 }
 
+/**
+ * The motion vocabulary, decoupled from Pip's drawn body so `create-pet` can
+ * apply the exact same animation to an arbitrary character image: per-frame
+ * offset/lean/squash, a state tint, and the frame-space overlay decorations.
+ */
+export interface FrameAnimation {
+  dx: number;
+  dy: number;
+  lean: number;
+  scaleX: number;
+  scaleY: number;
+  shadowScale: number;
+  tint: 'none' | 'gray' | 'alarm';
+  /** Frame-space SVG decorations (gear, magnifier, warning sign, …). */
+  overlaySvg: string;
+}
+
+export function frameAnimation(state: SpriteStateName, frameIndex: number, frames: number): FrameAnimation {
+  const p = poseFor(state, frameIndex, frames);
+  return {
+    dx: p.dx ?? 0,
+    dy: p.dy ?? 0,
+    lean: p.lean ?? 0,
+    scaleX: p.squashX ?? 1,
+    scaleY: p.squashY ?? 1,
+    shadowScale: Math.max(0.35, Math.min(1.15, p.shadowScale ?? 1)),
+    tint: state === 'failed' ? 'gray' : state === 'alarm' ? 'alarm' : 'none',
+    overlaySvg: pose_overlay(p),
+  };
+}
+
+function pose_overlay(p: Pose): string {
+  return p.overlay ?? '';
+}
+
+/** Frame geometry shared by the image compositor. */
+export const FRAME_GEO = { W, H, CX, baseY: BASE_Y };
+
+/** Wrap frame-space overlay fragments in a standalone SVG document. */
+export function overlaySvgDoc(overlaySvg: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${overlaySvg}</svg>`;
+}
+
+/** The ground-shadow ellipse as a standalone SVG (drawn under the character). */
+export function shadowSvgDoc(shadowScale: number): string {
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
+    `<ellipse cx="${CX}" cy="187" rx="${44 * shadowScale}" ry="${6.5 * shadowScale}" fill="#000" opacity="${0.16 * shadowScale}"/></svg>`
+  );
+}
+
 /** Render one 192x208 SVG frame of Pip. */
 export function renderPipFrameSvg(state: SpriteStateName, frameIndex: number, frames: number): string {
   const pose = poseFor(state, frameIndex, frames);

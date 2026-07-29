@@ -118,3 +118,28 @@ Verified live (host + real events): the digest panel showed **Blocked now**
 - [ ] Confirm the history file at
       `~/Library/Application Support/desktop-pets/history.jsonl` stays bounded
       and never leaves the machine (no network calls anywhere in the app).
+
+## Stage 8 — create-pet CLI
+
+Verified live: a single test image produced a conformant 8×10 animated sheet
+that loaded and passed the full smoke test.
+
+```sh
+pnpm build
+node packages/create-pet/dist/bin.js from-image path/to/character.png \
+  --id my-pet --name "My Pet" --license CC-BY-4.0 --author "Your Name" --out ./my-pet
+```
+
+- [ ] The command composes 80 frames and writes `pet.json` + `spritesheet.webp`,
+      then reports "validated on disk". Open the `.webp`: idle bobs, running
+      leans with dashes, failed is grey, alarm is red with a warning sign.
+- [ ] Run it again omitting `--license` (in a non-TTY/CI context): it refuses.
+      On a terminal it prompts for license and author instead.
+- [ ] `create-pet from-sheet bad.webp …` with a wrong-sized sheet is rejected;
+      a correctly-sized one is accepted.
+- [ ] `create-pet validate <dir>` passes on a good pet and fails after you
+      delete `license` from its `pet.json`.
+- [ ] Install the new pet (`--out` into
+      `~/Library/Application Support/desktop-pets/pets/<id>`) and run
+      `pnpm start` — with `--pet=<id>` (or set `activePetId` in `state.json`)
+      it becomes the active pet.
