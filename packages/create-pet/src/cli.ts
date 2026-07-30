@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { PET_ID_PATTERN, SPRITE_SHEET, validatePetManifest } from '@desktop-pets/shared';
+import { PET_ID_PATTERN, SPRITE_SHEET, userPetsDir, validatePetManifest } from '@desktop-pets/shared';
 import type { PetManifest } from '@desktop-pets/shared';
 import { assertSheetGeometry } from './sheet.js';
 import { composeSheetFromImage } from './from-image.js';
@@ -103,9 +103,12 @@ function writePet(outDir: string, manifest: PetManifest, sheet: Buffer, io: CliI
 const USAGE = `create-pet — build a conformant desktop-pets pet
 
 Usage:
-  create-pet from-image <image> --id <id> --name <name> --license <SPDX> --author <author> [--out <dir>] [--description <text>] [--author-url <url>] [--generator <tool>]
-  create-pet from-sheet <sheet.webp> --id <id> --name <name> --license <SPDX> --author <author> [--out <dir>] ...
+  create-pet from-image <image> --id <id> --name <name> --license <SPDX> --author <author> [--install | --out <dir>] [--description <text>] [--author-url <url>] [--generator <tool>]
+  create-pet from-sheet <sheet.webp> --id <id> --name <name> --license <SPDX> --author <author> [--install | --out <dir>] ...
   create-pet validate <pet-dir>
+
+  --install  write straight into your pets folder so the app picks it up:
+             ${userPetsDir()}
 
 Notes:
   - license and author are REQUIRED; the tool refuses to emit a pet without them.
@@ -167,8 +170,18 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
       return 1;
     }
 
-    const outDir = typeof flags['out'] === 'string' ? (flags['out'] as string) : path.join(process.cwd(), manifest.id);
+    // `--install` puts the pet straight where the app looks for it, so it
+    // appears in the menu-bar picker without any copying by hand.
+    const outDir =
+      flags['install'] === true
+        ? path.join(userPetsDir(), manifest.id)
+        : typeof flags['out'] === 'string'
+          ? (flags['out'] as string)
+          : path.join(process.cwd(), manifest.id);
     writePet(outDir, manifest, sheet, io);
+    if (flags['install'] === true) {
+      io.log('✓ installed — pick it from the 🐾 menu bar icon under "Character"');
+    }
 
     // Final belt-and-braces: re-validate what we just wrote.
     const check = validatePetDir(outDir);

@@ -24,6 +24,7 @@ export interface ManagedWindow {
 }
 
 export interface PetManagerOptions {
+  /** Mutable: changing the character updates this in place. */
   sheetUrl: string;
   store: StateStore;
   /** Max concurrent session pets (excludes the home pet). */
@@ -62,6 +63,15 @@ export class PetManager {
 
   homeWindow(): ManagedWindow {
     return this.home;
+  }
+
+  /** Swap the active character; windows pick it up on their next render. */
+  setSheetUrl(url: string): void {
+    this.opts.sheetUrl = url;
+  }
+
+  sheetUrl(): string {
+    return this.opts.sheetUrl;
   }
 
   windowFor(key: PetKey): ManagedWindow | undefined {

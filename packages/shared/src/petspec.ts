@@ -10,6 +10,13 @@ export const SPRITE_SHEET = {
   height: 10 * 208,
 } as const;
 
+/**
+ * The ground line every pet stands on, in frame pixels from the top. Shared
+ * by the art generators and by the host's Dock parking, so every pet — pixel
+ * or image-derived — plants its feet in exactly the same place.
+ */
+export const SPRITE_BASELINE_Y = 184;
+
 export type SpriteLoop = number | 'infinite' | 'until-dismissed';
 
 export interface SpriteStateSpec {

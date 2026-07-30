@@ -132,10 +132,29 @@ front-facing, then walking back right along the Dock.
       a bubble, an alarm, or a pending permission.
 - [ ] Drag it somewhere else — it stays where you put it and remembers that
       position across restarts.
-- [ ] Prefer the old vector pet, or your own? `pnpm start -- --pet=pip`, or
-      set `activePetId` in `state.json`. To resize, change `PET_SCALE` in
-      `packages/shared/src/viewmodel.ts` (0.5 keeps the pixel grid exact;
-      0.75 or 1.0 also work).
+- [ ] To resize, change `PET_SCALE` in `packages/shared/src/viewmodel.ts`
+      (0.5 keeps the pixel grid exact; 0.75 and 1.0 also work).
+
+## Choosing a character
+
+Verified live: the picker listed `Ember (bundled) / Pip (bundled) / Shroom —
+MIT by Jason`, and a user-drawn character installed with one command ran as
+the active pet, standing correctly on the Dock.
+
+- [ ] 🐾 menu bar → **Character** lists every installed pet, bundled ones
+      first, with the active one ticked. Hovering shows licence and author.
+- [ ] Pick a different one: the pet changes immediately, no restart. Quit and
+      relaunch — it's still the one you chose.
+- [ ] Build and install one of your own, then check it appears in the menu
+      **without restarting**:
+      ```sh
+      node packages/create-pet/dist/bin.js from-image drawing.png \
+        --id mine --name "Mine" --license CC0-1.0 --author "You" --install
+      ```
+- [ ] "Open pets folder…" opens the right directory in Finder. Delete a pet
+      folder and it disappears from the picker.
+- [ ] A pet whose `pet.json` is missing `license` or `author` never appears in
+      the picker at all (check the log for the rejection reason).
 
 ## Stage 8 — create-pet CLI
 

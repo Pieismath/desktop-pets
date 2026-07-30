@@ -263,6 +263,29 @@ off-limits (§2) — that is the licensing stance, and unchanged. The pixel-art
 *style* was always available; the earlier vector look was my call, not a
 constraint.
 
+### D20 — Character picking needed a UI, not just plumbing
+
+Pets were always pluggable (discovery, validation, `--pet=`, `activePetId`),
+but choosing one meant hand-editing `state.json` or passing a CLI flag, and
+`create-pet` wrote to a folder you then copied by hand. For "download it and
+pick your character" that is homework, not a feature. Added:
+
+- **🐾 → Character** submenu listing every installed pet as radio items,
+  bundled first then user-installed, each labelled with its licence and
+  author (provenance visible at the point of choice, not buried in a file).
+  Picking one swaps the sheet live — no restart — and persists `activePetId`.
+- **`create-pet --install`** writes straight into the user pets dir.
+- **`fs.watch`** on that dir refreshes the picker, so a newly installed pet
+  appears without restarting.
+- **"Open pets folder…"** reveals the directory in Finder.
+
+Also unified the ground line: `SPRITE_BASELINE_Y` (184 of 208) is now shared
+by the pixel generator, the image pipeline, and the host's Dock parking, so
+every pet — however it was made — plants its feet in the same place. Before
+this, image-derived pets stood ~8px lower than pixel ones and sank into the
+Dock. Verified live: a user-drawn mushroom, installed with one command, ran
+as the active pet standing correctly on the Dock.
+
 ### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
 
 The "is the agent's own app focused?" test compares the frontmost bundle id

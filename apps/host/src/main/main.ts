@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Menu, app, dialog } from 'electron';
-import { DEFAULT_REACTION_MAP, classifyToolCall, resolveReactionMap, sanitizeSpeech } from '@desktop-pets/shared';
+import {
+  DEFAULT_REACTION_MAP,
+  classifyToolCall,
+  resolveReactionMap,
+  sanitizeSpeech,
+  userPetsDir,
+} from '@desktop-pets/shared';
 import type { BubbleButton, PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
 import { DecisionBroker } from './broker.js';
 import { ConfigStore } from './config.js';
@@ -13,8 +19,9 @@ import { HistoryStore } from './history.js';
 import { IpcServer } from './ipc-server.js';
 import { ElectronNotifier } from './notify.js';
 import { Patrol, type WalkDirection } from './patrol.js';
+import { petMenuEntries } from './petmenu.js';
 import { PetManager, type PetKey } from './petmanager.js';
-import { resolveActivePet } from './pets.js';
+import { discoverPets, resolveActivePet } from './pets.js';
 import { DndController, LsappinfoFocusProvider, PowerMonitorIdleProvider } from './providers.js';
 import { RiskConfigStore } from './risk-config.js';
 import type { AgentSession, DecisionRequest, SurfaceMoment } from './sessions.js';
@@ -36,6 +43,8 @@ const autoDecideArg = process.argv.find((a) => a.startsWith('--auto-decide='));
 const dumpPetsArg = process.argv.find((a) => a.startsWith('--dump-pets='));
 const autoDigestArg = process.argv.find((a) => a.startsWith('--auto-digest='));
 const petArg = process.argv.find((a) => a.startsWith('--pet='));
+// Debug/support: dump the character picker exactly as the menu bar builds it.
+const dumpMenuArg = process.argv.find((a) => a.startsWith('--dump-pet-menu='));
 const capturePetsArg = process.argv.find((a) => a.startsWith('--capture-pets='));
 const capturePetsDir = capturePetsArg ? capturePetsArg.slice('--capture-pets='.length) : undefined;
 
@@ -72,7 +81,7 @@ app.whenReady().then(async () => {
     const store = new StateStore(smokeMode);
     const config = new ConfigStore(smokeMode);
     const preferredPetId = petArg ? petArg.slice('--pet='.length) : store.get().activePetId;
-    const active = resolveActivePet(preferredPetId);
+    let active = resolveActivePet(preferredPetId);
     console.log(
       `[pets] active: ${active.pet.displayName} (${active.pet.id}) — ${active.pet.license} by ${active.pet.author}`,
     );
@@ -142,7 +151,7 @@ app.whenReady().then(async () => {
       const pending = broker.get(session.key);
       const stroll = walking.get(session.key);
       const vm: PetViewModel = {
-        sheetUrl: active.sheetUrl,
+        sheetUrl: pets.sheetUrl(),
         spriteState: stroll
           ? stroll === 'left'
             ? 'running-left'
@@ -205,7 +214,7 @@ app.whenReady().then(async () => {
         const stroll = walking.get('home');
         // No tag on the lone idle pet — the label would just cover the Dock.
         pets.render('home', {
-          sheetUrl: active.sheetUrl,
+          sheetUrl: pets.sheetUrl(),
           spriteState: stroll ? (stroll === 'left' ? 'running-left' : 'running-right') : 'idle',
           dnd: dndActive(),
         });
@@ -393,6 +402,32 @@ app.whenReady().then(async () => {
       refreshTray();
     };
 
+    const petChoices = () => discoverPets().pets.map((p) => ({ pet: p.pet, bundled: p.bundled }));
+
+    if (dumpMenuArg) {
+      fs.writeFileSync(
+        dumpMenuArg.slice('--dump-pet-menu='.length),
+        JSON.stringify(petMenuEntries(petChoices(), active.pet.id), null, 2),
+      );
+    }
+
+    /** Swap the character live — no restart, and the choice sticks. */
+    const switchPet = (id: string): void => {
+      if (id === active.pet.id) return;
+      const next = discoverPets().pets.find((p) => p.pet.id === id);
+      if (!next) {
+        console.warn(`[pets] cannot switch to "${id}": not installed or failed validation`);
+        refreshTray();
+        return;
+      }
+      active = next;
+      pets.setSheetUrl(next.sheetUrl);
+      store.update({ activePetId: id });
+      console.log(`[pets] active: ${next.pet.displayName} (${id}) — ${next.pet.license} by ${next.pet.author}`);
+      renderAll();
+      refreshTray();
+    };
+
     // Focus changes: re-render, and auto-release any hold whose terminal is now front.
     focus.start(() => {
       for (const key of broker.keys()) {
@@ -457,8 +492,27 @@ app.whenReady().then(async () => {
       await runSmoke(pets.homeWindow(), smokeOut);
     } else {
       renderAll();
-      const tray = createTray({ isDnd: () => manualDnd, onToggleDnd: toggleDnd, onQuit: () => pets.destroyAll() });
+      const tray = createTray({
+        isDnd: () => manualDnd,
+        onToggleDnd: toggleDnd,
+        listPets: () => discoverPets().pets.map((p) => ({ pet: p.pet, bundled: p.bundled })),
+        activePetId: () => active.pet.id,
+        onPickPet: switchPet,
+        onQuit: () => pets.destroyAll(),
+      });
       refreshTray = () => tray.refresh();
+
+      // Drop a new pet folder in and it shows up in the picker straight away.
+      try {
+        fs.mkdirSync(userPetsDir(), { recursive: true });
+        let debounce: NodeJS.Timeout | undefined;
+        fs.watch(userPetsDir(), () => {
+          if (debounce) clearTimeout(debounce);
+          debounce = setTimeout(() => refreshTray(), 400);
+        });
+      } catch {
+        // watching is a convenience; the picker still works without it
+      }
       if (autoDigestArg) {
         setTimeout(() => {
           openDigest({ x: 500, y: 500 });

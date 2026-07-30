@@ -72,14 +72,27 @@ node packages/hooks/dist/installer.js install
 node packages/hooks/dist/installer.js uninstall
 ```
 
-Make your own pet from a single character image (prompts for the required
-`license` and `author`, refuses without them, validates the 8×10 grid):
+## Choosing your character
+
+The bundled pet is only a default. Pick any installed character from the 🐾
+menu-bar icon → **Character** — the switch is instant, shows each pet's
+licence and author, and is remembered next launch. "Open pets folder…" in the
+same menu reveals where they live, and anything dropped in there appears in
+the picker straight away.
+
+Make your own from a single drawing (prompts for the required `license` and
+`author`, refuses without them, validates the 8×10 grid). `--install` puts it
+straight into your pets folder so it shows up in the picker:
 
 ```sh
 node packages/create-pet/dist/bin.js from-image character.png \
-  --id my-pet --name "My Pet" --license CC-BY-4.0 --author "You" --out ./my-pet
-node packages/create-pet/dist/bin.js validate ./my-pet
+  --id my-pet --name "My Pet" --license CC-BY-4.0 --author "You" --install
+
+node packages/create-pet/dist/bin.js validate ~/Library/Application\ Support/desktop-pets/pets/my-pet
 ```
+
+Already have an 8×10 sheet? Use `from-sheet` instead. Prefer a flag to the
+menu? `pnpm start -- --pet=<id>`.
 
 ## Sprite format
 

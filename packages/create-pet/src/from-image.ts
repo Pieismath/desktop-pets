@@ -1,10 +1,12 @@
 import sharp, { type OverlayOptions } from 'sharp';
-import { SPRITE_STATES } from '@desktop-pets/shared';
+import { SPRITE_BASELINE_Y, SPRITE_STATES } from '@desktop-pets/shared';
 import type { SpriteStateName } from '@desktop-pets/shared';
 import { FRAME_GEO, frameAnimation, overlaySvgDoc, shadowSvgDoc } from './pip.js';
 import { composeSheetWebp, type FrameCell } from './sheet.js';
 
-const { W, H, CX, baseY } = FRAME_GEO;
+const { W, H, CX } = FRAME_GEO;
+// Stand on the shared ground line so every pet lines up on the Dock.
+const baseY = SPRITE_BASELINE_Y;
 
 // The character occupies roughly this box; motion transforms move it around.
 const CHAR_W = 150;

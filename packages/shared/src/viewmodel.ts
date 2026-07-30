@@ -1,3 +1,4 @@
+import { SPRITE_BASELINE_Y } from './petspec.js';
 import type { SpriteStateName } from './reactions.js';
 
 /** Button rendered inside a speech bubble. */
@@ -49,11 +50,8 @@ export const PET_WINDOW = {
   sprite: { x: Math.round((220 - SPRITE_W) / 2), y: 92, w: SPRITE_W, h: SPRITE_H },
   bubble: { x: 2, y: 0, w: 216, h: 86 },
   tag: { y: 194, h: 18 },
-  /**
-   * Distance from the window's top to the character's feet. The art places
-   * the baseline at logical y=46 of 52, i.e. 46/52 of the frame height.
-   */
-  feetOffset: 92 + Math.round((46 / 52) * SPRITE_H),
+  /** Distance from the window's top to the shared ground line. */
+  feetOffset: 92 + Math.round(SPRITE_BASELINE_Y * PET_SCALE),
 } as const;
 
 /** Everything the pet window needs to render. Pushed whole; renderer is dumb. */

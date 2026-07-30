@@ -10,6 +10,8 @@ export interface LoadedPet {
   dir: string;
   sheetPath: string;
   sheetUrl: string;
+  /** Ships with the app, as opposed to being installed by the user. */
+  bundled: boolean;
 }
 
 export interface PetLoadError {
@@ -26,7 +28,7 @@ export function bundledPetsDir(): string {
  * Load and fully validate one pet directory. Provenance is enforced here:
  * a pet whose manifest lacks `license` or `author` never loads.
  */
-export function loadPetFromDir(dir: string): LoadedPet | PetLoadError {
+export function loadPetFromDir(dir: string, bundled = false): LoadedPet | PetLoadError {
   let parsed: unknown;
   try {
     parsed = JSON.parse(fs.readFileSync(path.join(dir, 'pet.json'), 'utf8'));
@@ -54,14 +56,17 @@ export function loadPetFromDir(dir: string): LoadedPet | PetLoadError {
       ],
     };
   }
-  return { pet: res.pet, dir, sheetPath, sheetUrl: pathToFileURL(sheetPath).href };
+  return { pet: res.pet, dir, sheetPath, sheetUrl: pathToFileURL(sheetPath).href, bundled };
 }
 
 export function discoverPets(): { pets: LoadedPet[]; failures: PetLoadError[] } {
   const pets: LoadedPet[] = [];
   const failures: PetLoadError[] = [];
   const seen = new Set<string>();
-  for (const root of [userPetsDir(), bundledPetsDir()]) {
+  for (const [root, bundled] of [
+    [userPetsDir(), false],
+    [bundledPetsDir(), true],
+  ] as const) {
     let entries: string[] = [];
     try {
       entries = fs.readdirSync(root);
@@ -71,7 +76,7 @@ export function discoverPets(): { pets: LoadedPet[]; failures: PetLoadError[] } 
     for (const name of entries) {
       const dir = path.join(root, name);
       if (!fs.existsSync(path.join(dir, 'pet.json'))) continue;
-      const res = loadPetFromDir(dir);
+      const res = loadPetFromDir(dir, bundled);
       if ('errors' in res) {
         failures.push(res);
       } else if (!seen.has(res.pet.id)) {
