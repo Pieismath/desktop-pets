@@ -2,7 +2,7 @@
   "name": "desktop-pets",
   "version": "0.1.0",
   "private": true,
-  "description": "A desktop companion that decides whether to interrupt you — and that you can answer back.",
+  "description": "A desktop companion that decides whether to interrupt you \u2014 and that you can answer back.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.17.0",
@@ -15,9 +15,9 @@
     "test": "pnpm run build && vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "gen:pet": "pnpm run build && node packages/create-pet/dist/gen-default.js",
     "start": "pnpm run build && pnpm --filter @desktop-pets/host exec electron .",
-    "smoke": "pnpm run build && pnpm --filter @desktop-pets/host exec electron . --smoke"
+    "smoke": "pnpm run build && pnpm --filter @desktop-pets/host exec electron . --smoke",
+    "gen:pets": "pnpm run build && node packages/create-pet/dist/gen-bundled.js"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

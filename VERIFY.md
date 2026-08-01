@@ -10,7 +10,7 @@ verification already run for every stage lives in `captures/report.json`
 pnpm start
 ```
 
-- [ ] Pip appears bottom-right, transparent background, above other windows,
+- [ ] The pet appears with a transparent background, above other windows,
       **without stealing focus** from the app you're typing in.
 - [ ] Animations look alive (the smoke test proves frames advance; judge the
       *feel*): idle bobs and blinks (~5.5 s loop), working spins the gear,
@@ -119,14 +119,18 @@ Verified live (host + real events): the digest panel showed **Blocked now**
       `~/Library/Application Support/desktop-pets/history.jsonl` stays bounded
       and never leaves the machine (no network calls anywhere in the app).
 
-## Look and placement (Ember)
+## Look and placement (Mochi, the default)
 
-Verified live: Ember stands with its feet exactly on the Dock's top edge
+Verified live: the pet stands with its feet exactly on the Dock's top edge
 (Dock top 898 → window y 714), and patrol was captured walking left, settling
 front-facing, then walking back right along the Dock.
 
-- [ ] `pnpm start` — a small pixel critter stands on the Dock, roughly the
-      height of a Dock icon, crisp (no blurring/anti-aliasing).
+- [ ] `pnpm start` — a small ginger pixel cat stands on the Dock, roughly the
+      height of a Dock icon, crisp (no blurring/anti-aliasing). Ears, whiskers
+      and green slit eyes should be legible at that size.
+- [ ] Every pet is pixel art — there is no smooth/vector pet any more. A pet
+      built from your own photo or drawing (`from-image`) comes out pixelated
+      too, and shares the grey "failed" wash and red "alarm" flash.
 - [ ] Leave it alone: every 7–20s it strolls a short way along the Dock in
       profile, then settles front-facing. It should never wander while it has
       a bubble, an alarm, or a pending permission.
@@ -137,7 +141,7 @@ front-facing, then walking back right along the Dock.
 
 ## Choosing a character
 
-Verified live: the picker listed `Ember (bundled) / Pip (bundled) / Shroom —
+Verified live: the picker listed `Ember (bundled) / Mochi (bundled) / Shroom —
 MIT by Jason`, and a user-drawn character installed with one command ran as
 the active pet, standing correctly on the Dock.
 
@@ -145,6 +149,7 @@ the active pet, standing correctly on the Dock.
       first, with the active one ticked. Hovering shows licence and author.
 - [ ] Pick a different one: the pet changes immediately, no restart. Quit and
       relaunch — it's still the one you chose.
+- [ ] Switch between **Mochi** and **Ember** — both bundled, both pixel art.
 - [ ] Build and install one of your own, then check it appears in the menu
       **without restarting**:
       ```sh

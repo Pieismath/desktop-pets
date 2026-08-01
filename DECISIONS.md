@@ -114,12 +114,12 @@ Sessions running with `--dangerously-skip-permissions` never raise
 `PreToolUse`) but cannot gate them; the alarm-hold in that case is
 display-only. Documented so nobody mistakes the pet for a policy engine.
 
-### D8 — Default pet art is procedural and CC0
+### D8 — Bundled pet art is procedural and CC0
 
-The bundled pet ("Pip") is drawn entirely in code (SVG shapes → sharp →
-spritesheet) by the generator in `packages/create-pet`. No reference images,
-no IP. Art license CC0-1.0, `generator` field credits the tool. This also
-proves the `create-pet` pipeline end-to-end.
+Every bundled pet is drawn entirely in code by the generator in
+`packages/create-pet` — no reference images, no IP. Art licence CC0-1.0, and
+the `generator` field credits the tool. This also proves the `create-pet`
+pipeline end-to-end. Superseded in look by D19/D21 (vector → pixel art).
 
 ### D9 — pnpm v10+ blocks postinstall scripts by default
 
@@ -285,6 +285,33 @@ every pet — however it was made — plants its feet in the same place. Before
 this, image-derived pets stood ~8px lower than pixel ones and sank into the
 Dock. Verified live: a user-drawn mushroom, installed with one command, ran
 as the active pet standing correctly on the Dock.
+
+### D21 — One visual language: a cat by default, every pet pixel art
+
+Feedback: make the default a cat, and make *all* pets pixelated like Ember.
+Taken as a product decision — the app now has a single look, so:
+
+- **`Mochi`**, an original ginger tabby, is the default. At 48×52 logical a
+  cat reads through four things — pointed triangular ears, whiskers, slit
+  pupils, and a long expressive tail — so those get the pixels; the tabby "M"
+  and tail rings are the flourishes.
+- **The vector pet (Pip) is gone**, along with its SVG generator. It was the
+  only non-pixel art and kept the codebase carrying two rendering paths.
+- **`from-image` now produces pixel art too**: the source picture is trimmed,
+  reduced to a small logical sprite with nearest-neighbour sampling, then run
+  through the *same* pose engine and overlays as the hand-drawn characters.
+  So a user pet shares the grey "failed" wash, the red "alarm" flash and the
+  ground line. Images have no legs to swing, so their walk gets a hop on the
+  mid-stride frames instead of a leg cycle — honest, and it still reads as
+  movement rather than a slide.
+
+Structural consequence, and the reason this was worth doing properly:
+characters are now **pluggable**. `PixelCharacter` supplies only `draw` and
+`drawSide`; `poses.ts` owns the state→pose/palette/overlay mapping for
+*everyone*, and `greyPalette`/`alarmPalette` derive the failed and alarm
+treatments from whatever the character's own colours are. Adding a character
+is one file and a manifest entry — no animation timing to re-specify, and no
+way for a new pet to drift from the others' behaviour.
 
 ### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
 

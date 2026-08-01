@@ -2,7 +2,8 @@
  * A tiny pixel-art engine: everything is drawn on a low-resolution logical
  * grid (48x52) and upscaled 4x with nearest-neighbour into the locked
  * 192x208 frame. That keeps the sprite format unchanged while giving real,
- * chunky pixel art instead of smooth vector shapes.
+ * chunky pixel art. Every pet in the app is built through here — hand-drawn
+ * characters and image-derived ones alike — so they share one look.
  */
 
 export type RGBA = readonly [number, number, number, number];
@@ -17,51 +18,80 @@ export interface Palette {
   cream: RGBA;
   eyeWhite: RGBA;
   eyeDark: RGBA;
+  /** Iris / detail colour. */
+  accent: RGBA;
 }
-
-/** Ember's normal coat: a warm ember orange. */
-export const PAL_NORMAL: Palette = {
-  out: [96, 42, 18, 255],
-  dark: [178, 88, 34, 255],
-  main: [226, 124, 57, 255],
-  light: [246, 166, 95, 255],
-  cream: [250, 226, 195, 255],
-  eyeWhite: [255, 250, 242, 255],
-  eyeDark: [43, 26, 16, 255],
-};
-
-/** "failed": the colour drains out. */
-export const PAL_GREY: Palette = {
-  out: [58, 62, 66, 255],
-  dark: [116, 124, 130, 255],
-  main: [150, 158, 165, 255],
-  light: [182, 190, 196, 255],
-  cream: [222, 226, 230, 255],
-  eyeWhite: [245, 247, 248, 255],
-  eyeDark: [45, 50, 54, 255],
-};
-
-/** "alarm": hot red. Two variants so the sprite can flash between frames. */
-export const PAL_ALARM_A: Palette = {
-  out: [110, 20, 14, 255],
-  dark: [200, 46, 34, 255],
-  main: [240, 74, 58, 255],
-  light: [255, 128, 110, 255],
-  cream: [255, 214, 205, 255],
-  eyeWhite: [255, 250, 245, 255],
-  eyeDark: [60, 12, 8, 255],
-};
-
-export const PAL_ALARM_B: Palette = {
-  ...PAL_ALARM_A,
-  dark: [168, 32, 22, 255],
-  main: [212, 52, 38, 255],
-  light: [240, 96, 78, 255],
-};
 
 export const LOGICAL_W = 48;
 export const LOGICAL_H = 52;
 export const UPSCALE = 4;
+
+/** Where every character's feet sit on the logical grid. */
+export const LOGICAL_BASELINE = 46;
+
+// ------------------------------------------------------------ colour maths
+
+function clamp(n: number): number {
+  return Math.max(0, Math.min(255, Math.round(n)));
+}
+
+/** Drain the colour out of a pixel, keeping its brightness. */
+export function desaturate(c: RGBA, amount = 1): RGBA {
+  const lum = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+  // nudge toward a cool grey so "failed" reads as drained, not just flat
+  const g = lum * 0.9 + 18;
+  return [clamp(c[0] + (g - c[0]) * amount), clamp(c[1] + (g - c[1]) * amount), clamp(c[2] + (g * 1.04 - c[2]) * amount), c[3]];
+}
+
+/** Push a pixel toward alarm red, keeping its relative brightness. */
+export function towardRed(c: RGBA, amount = 0.75): RGBA {
+  const lum = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
+  const target: RGBA = [clamp(90 + lum * 165), clamp(18 + lum * 70), clamp(14 + lum * 58), c[3]];
+  return [
+    clamp(c[0] + (target[0] - c[0]) * amount),
+    clamp(c[1] + (target[1] - c[1]) * amount),
+    clamp(c[2] + (target[2] - c[2]) * amount),
+    c[3],
+  ];
+}
+
+const mapPalette = (p: Palette, f: (c: RGBA) => RGBA): Palette => ({
+  out: f(p.out),
+  dark: f(p.dark),
+  main: f(p.main),
+  light: f(p.light),
+  cream: f(p.cream),
+  eyeWhite: f(p.eyeWhite),
+  eyeDark: f(p.eyeDark),
+  accent: f(p.accent),
+});
+
+/** "failed": the colour drains out of whatever the character normally is. */
+export function greyPalette(p: Palette): Palette {
+  return mapPalette(p, (c) => desaturate(c));
+}
+
+/** "alarm": hot red, in two shades so the sprite can flash between frames. */
+export function alarmPalette(p: Palette, bright: boolean): Palette {
+  return mapPalette(p, (c) => towardRed(c, bright ? 0.82 : 0.92));
+}
+
+export type PaletteKind = 'normal' | 'grey' | 'alarmA' | 'alarmB';
+
+export function resolvePalette(normal: Palette, kind: PaletteKind): Palette {
+  switch (kind) {
+    case 'grey':
+      return greyPalette(normal);
+    case 'alarmA':
+      return alarmPalette(normal, true);
+    case 'alarmB':
+      return alarmPalette(normal, false);
+    default:
+      return normal;
+  }
+}
+
+// ------------------------------------------------------------------ canvas
 
 /** Indexed pixel canvas with an automatic silhouette outline pass. */
 export class PixelCanvas {
@@ -107,6 +137,30 @@ export class PixelCanvas {
         const dx = (x - cx) / rx;
         const dy = (y - cy) / ry;
         if (dx * dx + dy * dy <= 1) this.px(x, y, c);
+      }
+    }
+  }
+
+  /**
+   * Blit raw RGBA pixels (an already-pixelated image) at a position, skipping
+   * near-transparent pixels and optionally recolouring each one.
+   */
+  blitRaw(
+    data: Buffer | Uint8Array,
+    srcW: number,
+    srcH: number,
+    left: number,
+    top: number,
+    recolour?: (c: RGBA) => RGBA,
+  ): void {
+    for (let y = 0; y < srcH; y++) {
+      for (let x = 0; x < srcW; x++) {
+        const o = (y * srcW + x) * 4;
+        const a = data[o + 3] ?? 0;
+        if (a < 40) continue;
+        let c: RGBA = [data[o] ?? 0, data[o + 1] ?? 0, data[o + 2] ?? 0, 255];
+        if (recolour) c = recolour(c);
+        this.px(left + x, top + y, c);
       }
     }
   }
@@ -158,7 +212,7 @@ export class PixelCanvas {
   }
 }
 
-// ---------------------------------------------------------------- character
+// ------------------------------------------------------------------- poses
 
 export type EyeStyle = 'open' | 'blink' | 'x' | 'wide' | 'happy' | 'look';
 export type MouthStyle = 'smile' | 'open' | 'flat' | 'frown' | 'oh';
@@ -169,7 +223,7 @@ export interface Pose {
   dx?: number;
   /** Leg animation phase: 0 = stand, 1..4 = walk cycle steps. */
   legs?: 0 | 1 | 2 | 3 | 4;
-  /** Arm lift in pixels; negative raises the arm. */
+  /** Limb lift in pixels; negative raises. */
   armL?: number;
   armR?: number;
   /** Ears droop (positive) or perk (negative). */
@@ -182,237 +236,14 @@ export interface Pose {
   shadow?: number;
 }
 
-const CX = 24;
-const FEET_Y = 46;
-
-/**
- * Draw Ember: a small fox-ish ember-orange critter. Body first (solid
- * silhouette), then one outline pass, then facial features on top so they
- * stay crisp.
- */
-export function drawEmber(c: PixelCanvas, pose: Pose, pal: Palette): void {
-  const dy = Math.round(pose.dy ?? 0);
-  const dx = Math.round(pose.dx ?? 0);
-  const legs = pose.legs ?? 0;
-  const ears = Math.round(pose.ears ?? 0);
-  const squash = pose.squash ?? 0;
-
-  // ground shadow (drawn first, never outlined)
-  const sh = pose.shadow ?? 1;
-  if (sh > 0) {
-    c.ellipse(CX + dx * 0.5, FEET_Y + 2, 11 * sh, 2 * sh, [0, 0, 0, 46]);
-  }
-
-  const X = (v: number) => v + dx;
-  const Y = (v: number) => v + dy;
-
-  // ---- legs (behind the body) ----
-  const legPose: Record<number, [number, number, number, number]> = {
-    // [leftXOff, leftLen, rightXOff, rightLen]
-    0: [0, 7, 0, 7],
-    1: [-2, 5, 2, 7],
-    2: [-3, 4, 3, 6],
-    3: [2, 7, -2, 5],
-    4: [3, 6, -3, 4],
-  };
-  const [lx, ll, rx, rl] = legPose[legs] ?? legPose[0]!;
-  c.rect(X(19 + lx), Y(FEET_Y - ll), 4, ll, pal.dark);
-  c.rect(X(25 + rx), Y(FEET_Y - rl), 4, rl, pal.dark);
-  // feet
-  c.rect(X(18 + lx), Y(FEET_Y - 1), 6, 1, pal.out);
-  c.rect(X(24 + rx), Y(FEET_Y - 1), 6, 1, pal.out);
-
-  // ---- tail ----
-  const tw = Math.round(pose.tail ?? 0);
-  c.rect(X(30), Y(33), 3, 3, pal.dark);
-  c.rect(X(32), Y(31 + tw), 3, 3, pal.dark);
-  c.rect(X(34), Y(28 + tw * 2), 3, 4, pal.main);
-  c.rect(X(35), Y(26 + tw * 2), 3, 3, pal.light);
-
-  // ---- body ----
-  const bw = 14 + squash;
-  const bh = 13 - squash;
-  c.round(X(CX - Math.floor(bw / 2)), Y(FEET_Y - 7 - bh), bw, bh, pal.main);
-  // belly
-  c.rect(X(CX - 4), Y(FEET_Y - 7 - bh + 4), 8, bh - 5, pal.cream);
-
-  // ---- arms ----
-  const al = Math.round(pose.armL ?? 0);
-  const ar = Math.round(pose.armR ?? 0);
-  c.rect(X(14), Y(FEET_Y - 18 + al), 3, 7 - Math.min(0, al), pal.dark);
-  c.rect(X(31), Y(FEET_Y - 18 + ar), 3, 7 - Math.min(0, ar), pal.dark);
-
-  // ---- head ----
-  const headY = Y(11);
-  c.round(X(15), headY, 18, 16, pal.main);
-  // cheek shading
-  c.rect(X(16), headY + 12, 16, 3, pal.dark);
-  c.round(X(15), headY, 18, 16, null); // clear, then redraw so shading sits inside
-  c.round(X(15), headY, 18, 16, pal.main);
-  c.rect(X(17), headY + 11, 14, 3, pal.dark);
-  // muzzle
-  c.round(X(20), headY + 8, 8, 6, pal.cream);
-
-  // ---- ears (short and pointed, not rabbit-tall) ----
-  c.rect(X(16), headY - 4 + ears, 5, 5, pal.main);
-  c.rect(X(17), headY - 5 + ears, 3, 2, pal.main);
-  c.rect(X(27), headY - 4 + ears, 5, 5, pal.main);
-  c.rect(X(28), headY - 5 + ears, 3, 2, pal.main);
-
-  // one outline pass over the whole silhouette
-  c.outline(pal.out);
-
-  // inner ear (after outline so it stays inside)
-  c.rect(X(17), headY - 4 + ears, 3, 4, pal.light);
-  c.rect(X(28), headY - 4 + ears, 3, 4, pal.light);
-
-  // ---- face ----
-  drawEyes(c, X(0), headY, pose.eyes ?? 'open', pal);
-  drawMouth(c, X(0), headY, pose.mouth ?? 'smile', pal);
-}
-
-function drawEyes(c: PixelCanvas, ox: number, headY: number, style: EyeStyle, pal: Palette): void {
-  const ey = headY + 5;
-  const put = (x: number) => {
-    switch (style) {
-      case 'blink':
-        c.rect(ox + x, ey + 2, 4, 1, pal.out);
-        break;
-      case 'x':
-        c.px(ox + x, ey, pal.out);
-        c.px(ox + x + 3, ey, pal.out);
-        c.px(ox + x + 1, ey + 1, pal.out);
-        c.px(ox + x + 2, ey + 1, pal.out);
-        c.px(ox + x + 1, ey + 2, pal.out);
-        c.px(ox + x + 2, ey + 2, pal.out);
-        c.px(ox + x, ey + 3, pal.out);
-        c.px(ox + x + 3, ey + 3, pal.out);
-        break;
-      case 'happy':
-        c.rect(ox + x, ey + 2, 4, 1, pal.out);
-        c.px(ox + x, ey + 1, pal.out);
-        c.px(ox + x + 3, ey + 1, pal.out);
-        break;
-      case 'wide':
-        c.rect(ox + x, ey - 1, 4, 6, pal.eyeWhite);
-        c.rect(ox + x + 1, ey + 1, 3, 3, pal.eyeDark);
-        c.px(ox + x + 1, ey + 1, pal.eyeWhite);
-        break;
-      case 'look':
-        c.rect(ox + x, ey, 4, 4, pal.eyeWhite);
-        c.rect(ox + x, ey, 2, 3, pal.eyeDark);
-        break;
-      case 'open':
-      default:
-        c.rect(ox + x, ey, 4, 4, pal.eyeWhite);
-        c.rect(ox + x + 1, ey + 1, 3, 3, pal.eyeDark);
-        c.px(ox + x + 1, ey + 1, pal.eyeWhite);
-        break;
-    }
-  };
-  put(18);
-  put(26);
-}
-
-function drawMouth(c: PixelCanvas, ox: number, headY: number, style: MouthStyle, pal: Palette): void {
-  const my = headY + 11;
-  switch (style) {
-    case 'open':
-      c.rect(ox + 22, my, 4, 3, pal.out);
-      break;
-    case 'oh':
-      c.rect(ox + 23, my, 2, 3, pal.out);
-      break;
-    case 'flat':
-      c.rect(ox + 22, my + 1, 4, 1, pal.out);
-      break;
-    case 'frown':
-      c.rect(ox + 22, my + 1, 4, 1, pal.out);
-      c.px(ox + 21, my, pal.out);
-      c.px(ox + 26, my, pal.out);
-      break;
-    case 'smile':
-    default:
-      c.rect(ox + 22, my, 4, 1, pal.out);
-      c.px(ox + 21, my - 1, pal.out);
-      c.px(ox + 26, my - 1, pal.out);
-      break;
-  }
-  // nose
-  c.rect(ox + 23, headY + 8, 2, 2, pal.out);
-}
-
-/**
- * Side profile, facing right — used for the walk cycle so the pet reads as
- * travelling along the Dock rather than shuffling on the spot. Mirror the
- * canvas for the leftward walk.
- */
-export function drawEmberSide(c: PixelCanvas, pose: Pose, pal: Palette): void {
-  const dy = Math.round(pose.dy ?? 0);
-  const dx = Math.round(pose.dx ?? 0);
-  const step = pose.legs ?? 0;
-  const X = (v: number) => v + dx;
-  const Y = (v: number) => v + dy;
-
-  const sh = pose.shadow ?? 1;
-  if (sh > 0) c.ellipse(CX + dx * 0.5, FEET_Y + 2, 12 * sh, 2 * sh, [0, 0, 0, 46]);
-
-  // legs: front pair and back pair, swinging in opposition
-  const swing: Record<number, [number, number, number, number]> = {
-    //  [frontX, frontLen, backX, backLen] — longer legs, deeper swing
-    0: [0, 9, 0, 9],
-    1: [2, 8, -2, 9],
-    2: [4, 5, -4, 8],
-    3: [-2, 9, 2, 8],
-    4: [-4, 8, 4, 5],
-  };
-  const [fx, fl, bx, bl] = swing[step] ?? swing[0]!;
-  // back legs (darker, behind)
-  c.rect(X(18 + bx), Y(FEET_Y - bl), 4, bl, pal.dark);
-  c.rect(X(29 + bx), Y(FEET_Y - bl), 4, bl, pal.dark);
-  // front legs
-  c.rect(X(20 + fx), Y(FEET_Y - fl), 4, fl, pal.main);
-  c.rect(X(31 + fx), Y(FEET_Y - fl), 4, fl, pal.main);
-
-  // tail, sweeping up behind
-  const tw = Math.round(pose.tail ?? 0);
-  c.rect(X(12), Y(31 - tw), 4, 4, pal.dark);
-  c.rect(X(9), Y(27 - tw * 2), 4, 5, pal.main);
-  c.rect(X(8), Y(24 - tw * 2), 4, 4, pal.light);
-
-  // body: a long horizontal block, sitting high enough that legs read
-  c.round(X(15), Y(29), 20, 10, pal.main);
-  c.rect(X(18), Y(34), 14, 4, pal.cream);
-
-  // head in profile, at the right
-  const headY = Y(18);
-  c.round(X(28), headY, 13, 12, pal.main);
-  // snout
-  c.rect(X(39), headY + 5, 5, 5, pal.main);
-  c.rect(X(40), headY + 4, 3, 2, pal.main);
-
-  // ears
-  const ears = Math.round(pose.ears ?? 0);
-  c.rect(X(30), headY - 4 + ears, 5, 5, pal.main);
-  c.rect(X(31), headY - 5 + ears, 3, 2, pal.main);
-  c.rect(X(35), headY - 3 + ears, 4, 4, pal.dark);
-
-  c.outline(pal.out);
-
-  // inner ear + face details, after the outline pass
-  c.rect(X(31), headY - 3 + ears, 3, 3, pal.light);
-
-  // one visible eye
-  if ((pose.eyes ?? 'open') === 'blink') {
-    c.rect(X(34), headY + 5, 4, 1, pal.out);
-  } else {
-    c.rect(X(34), headY + 3, 4, 4, pal.eyeWhite);
-    c.rect(X(35), headY + 4, 3, 3, pal.eyeDark);
-    c.px(X(35), headY + 4, pal.eyeWhite);
-  }
-  // nose tip + mouth line
-  c.rect(X(43), headY + 5, 2, 2, pal.out);
-  c.rect(X(40), headY + 9, 3, 1, pal.out);
+/** A drawable character: the same pose vocabulary, two viewpoints. */
+export interface PixelCharacter {
+  id: string;
+  palette: Palette;
+  /** Front-facing: idle, working, waiting, alarm, … */
+  draw(c: PixelCanvas, pose: Pose, pal: Palette): void;
+  /** Side profile, facing right — used for the walk cycle. */
+  drawSide(c: PixelCanvas, pose: Pose, pal: Palette): void;
 }
 
 // ---------------------------------------------------------------- overlays
@@ -470,4 +301,9 @@ export function drawDots(c: PixelCanvas, x: number, y: number, active: number): 
     const on = i === active;
     c.rect(x + i * 4, y - (on ? 1 : 0), 2, 2, on ? [246, 166, 95, 255] : [150, 120, 96, 200]);
   }
+}
+
+export function drawShadow(c: PixelCanvas, cx: number, dx: number, scale: number): void {
+  if (scale <= 0) return;
+  c.ellipse(cx + dx * 0.5, LOGICAL_BASELINE + 2, 11 * scale, 2 * scale, [0, 0, 0, 46]);
 }

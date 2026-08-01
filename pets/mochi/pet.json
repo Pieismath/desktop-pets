@@ -1,7 +1,7 @@
 {
-  "id": "ember",
-  "displayName": "Ember",
-  "description": "A small fox-ish critter with a bushy tail.",
+  "id": "mochi",
+  "displayName": "Mochi",
+  "description": "A ginger tabby who sits on your Dock and keeps an eye on what your agents are about to run.",
   "spritesheet": "spritesheet.webp",
   "license": "CC0-1.0",
   "author": "Desktop Pets contributors",

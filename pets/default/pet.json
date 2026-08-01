@@ -1,9 +1,0 @@
-{
-  "id": "pip",
-  "displayName": "Pip",
-  "description": "A friendly blob who keeps one eye on your agents and both eyes on your shell commands.",
-  "spritesheet": "spritesheet.webp",
-  "license": "CC0-1.0",
-  "author": "Desktop Pets contributors",
-  "generator": "procedural SVG, @desktop-pets/create-pet (art drawn in code by Claude, Anthropic)"
-}

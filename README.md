@@ -53,7 +53,7 @@ built around three ideas that reacting alone doesn't cover:
 | `packages/hooks` | Claude Code hook runner + settings.json installer/uninstaller |
 | `packages/mcp` | MCP stdio server exposing `pet_status`, `pet_react`, `pet_say` |
 | `packages/create-pet` | CLI: character image in → conformant spritesheet + validated `pet.json` out |
-| `pets/default` | The bundled default pet (original, procedurally generated, CC0) |
+| `pets/mochi`, `pets/ember` | The bundled pets — original pixel art, drawn in code, CC0 |
 
 ## Quickstart
 

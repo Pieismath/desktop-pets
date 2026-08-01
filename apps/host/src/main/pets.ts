@@ -96,12 +96,12 @@ export function resolveActivePet(preferredId: string | undefined): LoadedPet {
   }
   const found =
     (preferredId && pets.find((p) => p.pet.id === preferredId)) ||
+    pets.find((p) => p.pet.id === 'mochi') ||
     pets.find((p) => p.pet.id === 'ember') ||
-    pets.find((p) => p.pet.id === 'pip') ||
     pets[0];
   if (!found) {
     throw new Error(
-      `no valid pets found (looked in ${userPetsDir()} and ${bundledPetsDir()}); run "pnpm gen:pet" to create the default`,
+      `no valid pets found (looked in ${userPetsDir()} and ${bundledPetsDir()}); run "pnpm gen:pets" to create them`,
     );
   }
   return found;
