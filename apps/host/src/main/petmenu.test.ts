@@ -34,7 +34,7 @@ describe('petMenuEntries', () => {
 
   it('surfaces provenance in the tooltip so the picker shows licence and author', () => {
     const entries = petMenuEntries([{ pet: pet('x', 'Xavier', 'MIT', 'Jason') }], 'x');
-    expect(entries[0]!.tooltip).toBe('Xavier — MIT by Jason');
+    expect(entries[0]!.tooltip).toBe('Xavier · MIT by Jason');
     expect(petMenuEntries([{ pet: pet('e', 'Ember'), bundled: true }], 'e')[0]!.tooltip).toContain('(bundled)');
   });
 

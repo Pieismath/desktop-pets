@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>A pixel pet that lives on your Dock and watches your coding agents.</b><br>
-  It decides whether to interrupt you — and lets you answer back.
+  It decides whether to interrupt you, and lets you answer back.
 </p>
 
 <p align="center">
@@ -46,11 +46,11 @@ node packages/hooks/dist/installer.js install   # backs up settings.json first
 ```
 
 <details>
-<summary><b>Requirements</b> — macOS, Node 22+, pnpm</summary>
+<summary><b>Requirements</b>: macOS, Node 22+, pnpm</summary>
 
 - macOS (tested on Apple Silicon, macOS 26)
 - [Node.js](https://nodejs.org) 22 or newer
-- [pnpm](https://pnpm.io/installation) — `npm install -g pnpm`
+- [pnpm](https://pnpm.io/installation) (`npm install -g pnpm`)
 - [Claude Code](https://claude.com/claude-code) is optional. The pet is happy
   on its own; the agent features need it.
 
@@ -71,8 +71,8 @@ When Claude Code is blocked waiting on permission and you're in another app,
 the pet shows the request with **Approve / Deny / Focus** and a countdown.
 
 Click Approve and the tool runs. Focus your terminal instead and the pet steps
-aside so the normal prompt takes over — **the pet answers when you're
-elsewhere, the terminal answers when you're looking at it.**
+aside so the normal prompt takes over. **The pet answers when you're
+elsewhere; the terminal answers when you're looking at it.**
 
 Running several agents? Each session gets **its own pet, tagged with its
 project**, so "which one is stuck?" is answered at a glance.
@@ -88,7 +88,7 @@ about to do something you'd want to see: `rm -rf`, `git push --force`, writes
 to `.env` or prod config, `sudo`, `DROP TABLE`, `kubectl delete`.
 
 The rules live in **one file you can read and edit**, tuned hard for
-precision — `rm -rf node_modules` stays silent, `echo "rm -rf /"` stays silent,
+precision: `rm -rf node_modules` stays silent, `echo "rm -rf /"` stays silent,
 `sudo rm -rf /var/data` does not. A false alarm would train you to ignore it,
 so ordinary commands are tested as carefully as dangerous ones.
 
@@ -116,7 +116,7 @@ again.
 
 ## Pick a pet, or invent one
 
-Four pets ship with it — a cat, a dog, a robot and a fox. All original pixel
+Four pets ship with it: a cat, a dog, a robot and a fox. All original pixel
 art, drawn in code, CC0.
 
 <p align="center">
@@ -148,7 +148,7 @@ node packages/create-pet/dist/bin.js from-prompt "a purple dragon with horns" \
 </sub></p>
 
 **This runs entirely on your machine.** No API key, no account, no network
-call, nothing to pay for — it's a parametric pixel-art generator, not an image
+call, nothing to pay for: it's a parametric pixel-art generator, not an image
 model. It knows ~26 species, ~30 colours and phrases like `floppy ears`,
 `long tail`, `green eyes`, `boxy`. Anything it doesn't recognise is filled in
 from a hash of your words, so the same description always gives the same pet.
@@ -160,7 +160,7 @@ Character menu with no restart.
 <summary><b>Already have art?</b> Use a picture or a spritesheet instead</summary>
 
 ```sh
-# any image — a drawing, a photo, or art you generated yourself
+# any image: a drawing, a photo, or art you generated yourself
 node packages/create-pet/dist/bin.js from-image my-character.png \
   --id my-pet --name "My Pet" --license CC0-1.0 --author "You" --install
 
@@ -178,7 +178,7 @@ the bundled pets, so it picks up the walk, the grey "failed" wash and the red
 </details>
 
 > **Every pet must declare `license` and `author`.** There's no flag to skip
-> it — a pet without them fails validation and never reaches the picker. And no
+> it: a pet without them fails validation and never reaches the picker. And no
 > copyrighted characters, ever: no Mario, no Pokémon. Original or public-domain
 > art only. [CONTRIBUTING.md](CONTRIBUTING.md) lists good CC0 sources.
 
@@ -194,14 +194,14 @@ the bundled pets, so it picks up the walk, the grey "failed" wash and the red
 
 ---
 
-## Status — what this is, and isn't
+## Status: what this is, and isn't
 
 - **macOS only.** Tested on Apple Silicon.
-- **Runs from source.** There's no signed `.app` yet — you clone it and run it
+- **Runs from source.** There's no signed `.app` yet. You clone it and run it
   with `pnpm`. If you want a double-clickable app, that work isn't done.
 - **Local only.** No telemetry, no analytics, no network calls of any kind. The
   pet talks to agents over a Unix socket with a per-run random token, and
-  nothing an agent says is shown raw — it all passes through one sanitiser that
+  nothing an agent says is shown raw. It all passes through one sanitiser that
   strips paths, URLs, tokens and secrets first.
 - **Claude Code** is the fully-wired integration. Anything that speaks **MCP**
   can drive the pet too (`pet_status`, `pet_react`, `pet_say`).
@@ -222,7 +222,7 @@ Everything sits under `~/Library/Application Support/desktop-pets/`:
 |---|---|
 | `pets/` | Your installed characters (one folder each) |
 | `config.json` | Escalation timings, Do Not Disturb apps, reaction→sprite overrides |
-| `risk-rules.json` | The alarm rules — the one file to audit or edit. Applies live |
+| `risk-rules.json` | The alarm rules: the one file to audit or edit. Applies live |
 | `history.jsonl` | Bounded local log behind the digest (≤300 entries / 7 days) |
 | `state.json` | Chosen character, pet positions, DND toggle |
 
@@ -250,7 +250,7 @@ System Settings → Notifications → Electron.
 
 **The pet doesn't sit on the Dock.** It stands on the Dock's top edge, worked
 out from your screen's usable area. With the Dock auto-hidden there's no ledge,
-so it stands on the bottom of the screen instead. Drag it anywhere — it stays
+so it stands on the bottom of the screen instead. Drag it anywhere. It stays
 where you put it.
 
 **`pnpm install` prints an Electron error.** Check whether it actually failed:
@@ -258,13 +258,13 @@ where you put it.
 version, ignore the warning; otherwise `pnpm rebuild -r electron`.
 
 **It doesn't react to Claude Code.** Confirm hooks are installed
-(`node packages/hooks/dist/installer.js status`) and restart Claude Code —
+(`node packages/hooks/dist/installer.js status`) and restart Claude Code, because
 hooks are read at startup. `DESKTOP_PETS_DEBUG=1` makes the hook explain itself.
 
 **Too big / too small.** The pet renders about 62 pt tall. Change `PET_SCALE`
 in `packages/shared/src/viewmodel.ts`; the window follows automatically. On a
-Retina display any multiple of `0.125` stays pixel-crisp (`0.25`, `0.375` — the
-default — `0.5`, `0.75`, `1.0`).
+Retina display any multiple of `0.125` stays pixel-crisp (`0.25`, `0.375`. The
+default: `0.5`, `0.75`, `1.0`).
 
 </details>
 
@@ -285,8 +285,8 @@ default — `0.5`, `0.75`, `1.0`).
 per state: `idle, running-right, running-left, waving, jumping, failed,
 waiting, working, review, alarm`.
 
-**Agents never name sprite rows.** They emit *reactions* — `thinking, working,
-editing, running, testing, waiting, success, error, celebrating, risky` — and
+**Agents never name sprite rows.** They emit *reactions*, `thinking, working,
+editing, running, testing, waiting, success, error, celebrating, risky`, and
 the host maps those to sprite states through a table you can override. New
 reactions never need new art.
 
@@ -302,7 +302,7 @@ pnpm smoke   # launch, screenshot all 10 states, exit
 
 ## Contributing
 
-Pets especially welcome — [CONTRIBUTING.md](CONTRIBUTING.md) has three routes to
+Pets especially welcome: [CONTRIBUTING.md](CONTRIBUTING.md) has three routes to
 one, the two provenance rules, and where to find CC0 art.
 
 ## Licence

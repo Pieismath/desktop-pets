@@ -125,14 +125,14 @@ export function validatePetManifest(input: unknown): PetValidation {
 
   const license = obj['license'];
   if (!isNonEmptyString(license)) {
-    errors.push('"license" is REQUIRED (SPDX id) — a pet without a license cannot install');
+    errors.push('"license" is REQUIRED (SPDX id). A pet without a license cannot install');
   } else if (license.length > 64 || !SPDX_PATTERN.test(license.trim())) {
     errors.push(`"license" must look like an SPDX expression, got ${JSON.stringify(license)}`);
   }
 
   const author = obj['author'];
   if (!isNonEmptyString(author)) {
-    errors.push('"author" is REQUIRED — a pet without an author cannot install');
+    errors.push('"author" is REQUIRED. A pet without an author cannot install');
   } else if (author.length > 120) {
     errors.push('"author" must be at most 120 characters');
   }

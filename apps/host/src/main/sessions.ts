@@ -247,7 +247,7 @@ export class SessionManager {
           const detail = this.opts.sanitize(command);
           const reason = verdict.reason ?? 'Risky operation';
           s.alarm = { ruleId: verdict.ruleId ?? 'unknown', reason, detail, since: this.now() };
-          this.surface('risky', s, `⚠︎ ${s.name}`, detail ? `${reason} — ${detail}` : reason);
+          this.surface('risky', s, `⚠︎ ${s.name}`, detail ? `${reason}: ${detail}` : reason);
         }
         if (msg.wantsDecision) {
           this.dispatchDecision({

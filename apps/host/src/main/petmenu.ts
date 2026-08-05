@@ -29,6 +29,6 @@ export function petMenuEntries(choices: PetChoice[], activeId: string | undefine
     id: c.pet.id,
     label: c.pet.displayName,
     checked: c.pet.id === activeId,
-    tooltip: `${c.pet.displayName} — ${c.pet.license} by ${c.pet.author}${c.bundled ? ' (bundled)' : ''}`,
+    tooltip: `${c.pet.displayName} · ${c.pet.license} by ${c.pet.author}${c.bundled ? ' (bundled)' : ''}`,
   }));
 }

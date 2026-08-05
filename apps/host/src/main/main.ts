@@ -83,7 +83,7 @@ app.whenReady().then(async () => {
     const preferredPetId = petArg ? petArg.slice('--pet='.length) : store.get().activePetId;
     let active = resolveActivePet(preferredPetId);
     console.log(
-      `[pets] active: ${active.pet.displayName} (${active.pet.id}) — ${active.pet.license} by ${active.pet.author}`,
+      `[pets] active: ${active.pet.displayName} (${active.pet.id}) · ${active.pet.license} by ${active.pet.author}`,
     );
 
     const resolved = resolveReactionMap(config.get().reactionMap);
@@ -198,7 +198,7 @@ app.whenReady().then(async () => {
         vm.spriteState = 'alarm';
         vm.alarm = true;
         vm.bubble = {
-          text: session.alarm.detail ? `${session.alarm.reason} — ${session.alarm.detail}` : session.alarm.reason,
+          text: session.alarm.detail ? `${session.alarm.reason}: ${session.alarm.detail}` : session.alarm.reason,
           ...(pending ? { buttons: decisionButtons } : {}),
         };
         vm.badge = formatDuration(Date.now() - session.alarm.since);
@@ -423,7 +423,7 @@ app.whenReady().then(async () => {
       active = next;
       pets.setSheetUrl(next.sheetUrl);
       store.update({ activePetId: id });
-      console.log(`[pets] active: ${next.pet.displayName} (${id}) — ${next.pet.license} by ${next.pet.author}`);
+      console.log(`[pets] active: ${next.pet.displayName} (${id}) · ${next.pet.license} by ${next.pet.author}`);
       renderAll();
       refreshTray();
     };

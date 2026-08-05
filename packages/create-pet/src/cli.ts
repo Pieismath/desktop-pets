@@ -108,7 +108,7 @@ function writePet(outDir: string, manifest: PetManifest, sheet: Buffer, io: CliI
   fs.writeFileSync(path.join(outDir, 'pet.json'), JSON.stringify(manifest, null, 2) + '\n');
   io.log(`✓ wrote ${path.join(outDir, 'pet.json')}`);
   io.log(`✓ wrote ${path.join(outDir, 'spritesheet.webp')} (${(sheet.byteLength / 1024).toFixed(1)} KiB)`);
-  io.log(`  ${manifest.displayName} — ${manifest.license} by ${manifest.author}`);
+  io.log(`  ${manifest.displayName} · ${manifest.license} by ${manifest.author}`);
 }
 
 /**
@@ -121,7 +121,7 @@ function resolveOutDir(flags: Flags, id: string): string {
   return path.join(process.cwd(), id);
 }
 
-const USAGE = `create-pet — build a conformant desktop-pets pet
+const USAGE = `create-pet: build a conformant desktop-pets pet
 
 Usage:
   create-pet from-prompt "<description>" --license <SPDX> --author <author> [--install | --out <dir>] [--id <id>] [--name <name>]
@@ -155,7 +155,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     const res = validatePetDir(dir);
     for (const w of res.warnings) io.log(`warning: ${w}`);
     if (res.ok) {
-      io.log(`✓ valid pet: ${res.pet?.displayName} (${res.pet?.id}) — ${res.pet?.license} by ${res.pet?.author}`);
+      io.log(`✓ valid pet: ${res.pet?.displayName} (${res.pet?.id}) · ${res.pet?.license} by ${res.pet?.author}`);
       return 0;
     }
     io.error('✗ invalid pet:');
@@ -172,7 +172,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
 
     const { traits, matched } = traitsFromPrompt(prompt);
     io.log(`reading "${prompt}"`);
-    io.log(`  → ${matched.length > 0 ? matched.join(', ') : 'nothing recognised — picking for you'}`);
+    io.log(`  → ${matched.length > 0 ? matched.join(', ') : 'nothing recognised, picking for you'}`);
     io.log(`  → ${traits.colourName} ${traits.species}, ${traits.ears} ears, ${traits.tail} tail, ${traits.gait}`);
 
     const manifest = await collectManifest(flags, io, {
@@ -195,7 +195,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     const outDir = resolveOutDir(flags, manifest.id);
     writePet(outDir, manifest, sheet, io);
     if (flags['install'] === true) {
-      io.log('✓ installed — pick it from the 🐾 menu bar icon under "Character"');
+      io.log('✓ installed. Pick it from the 🐾 menu bar icon under "Character"');
     }
     const check = validatePetDir(outDir);
     if (!check.ok) {
@@ -203,7 +203,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
       for (const e of check.errors) io.error(`  - ${e}`);
       return 1;
     }
-    io.log('✓ validated on disk — ready to install');
+    io.log('✓ validated on disk, ready to install');
     return 0;
   }
 
@@ -240,7 +240,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     const outDir = resolveOutDir(flags, manifest.id);
     writePet(outDir, manifest, sheet, io);
     if (flags['install'] === true) {
-      io.log('✓ installed — pick it from the 🐾 menu bar icon under "Character"');
+      io.log('✓ installed. Pick it from the 🐾 menu bar icon under "Character"');
     }
 
     // Final belt-and-braces: re-validate what we just wrote.
@@ -250,7 +250,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
       for (const e of check.errors) io.error(`  - ${e}`);
       return 1;
     }
-    io.log('✓ validated on disk — ready to install');
+    io.log('✓ validated on disk, ready to install');
     return 0;
   }
 

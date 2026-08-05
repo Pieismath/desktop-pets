@@ -15,7 +15,7 @@ async function main(): Promise<void> {
     const { sheetBytes } = await generatePixelPet(character, manifest, outDir);
     console.log(
       `wrote ${outDir} (${(sheetBytes / 1024).toFixed(1)} KiB)` +
-        ` — ${manifest.displayName}, ${manifest.license} by ${manifest.author}${isDefault ? ' [default]' : ''}`,
+        ` · ${manifest.displayName}, ${manifest.license} by ${manifest.author}${isDefault ? ' [default]' : ''}`,
     );
   }
 }

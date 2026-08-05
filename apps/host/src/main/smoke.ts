@@ -84,7 +84,7 @@ export async function runSmoke(win: ManagedWindow, outDir: string): Promise<neve
       Number.isFinite(idleSeconds),
   };
   fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2));
-  console.log(`[smoke] ${report.ok ? 'OK' : 'FAILED'} — ${JSON.stringify(report)}`);
+  console.log(`[smoke] ${report.ok ? 'OK' : 'FAILED'}: ${JSON.stringify(report)}`);
   app.exit(report.ok ? 0 : 1);
   return new Promise<never>(() => {});
 }

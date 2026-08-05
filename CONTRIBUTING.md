@@ -18,7 +18,7 @@ node packages/create-pet/dist/bin.js from-prompt "a mint green axolotl" \
   --license CC0-1.0 --author "Your Name" --install
 ```
 
-Runs locally — no API key, no network, no cost. Good for a quick pet; if you
+Runs locally: no API key, no network, no cost. Good for a quick pet; if you
 want something specific, the other two routes give you full control.
 
 ### 2. Bring a picture
@@ -33,7 +33,7 @@ node packages/create-pet/dist/bin.js from-image my-character.png \
   --install
 ```
 
-Any image works — a drawing, a photo, or art you generated with an AI tool of
+Any image works: a drawing, a photo, or art you generated with an AI tool of
 your own. It gets reduced to pixels and animated through the same engine as
 the bundled pets. **If you use someone else's art, it must be licensed for
 this** (see the rules below).
@@ -49,7 +49,7 @@ the repo and open a pull request.
 
 ### The two hard rules
 
-1. **Original or public-domain art only.** No copyrighted characters — no
+1. **Original or public-domain art only.** No copyrighted characters. No
    Mario, no Pokémon, no Studio Ghibli, nothing you don't have the right to
    release. This is the single rule the project won't bend on, and it's why
    provenance is enforced in code rather than requested politely.
@@ -67,7 +67,7 @@ node packages/create-pet/dist/bin.js validate <pet-folder>
 ```
 
 This verifies the manifest and that the spritesheet is exactly
-1536 × 2080 — 8 columns × 10 rows of 192 × 208 frames.
+1536 × 2080: 8 columns × 10 rows of 192 × 208 frames.
 
 ### Drawing a character in code instead
 
@@ -79,7 +79,7 @@ export const MY_CHARACTER: PixelCharacter = {
   id: 'my-character',
   palette: MY_PALETTE,
   draw(canvas, pose, palette) { /* front view */ },
-  drawSide(canvas, pose, palette) { /* profile, facing right — used for walking */ },
+  drawSide(canvas, pose, palette) { /* profile, facing right, used for walking */ },
 };
 ```
 
@@ -91,25 +91,25 @@ means a new character can't drift from how the others behave.
 Add it to `BUNDLED_PETS` in `bundled-pets.ts`, then `pnpm gen:pets`.
 
 If you want a *parametric* character rather than a hand-drawn one, look at
-`char-generated.ts` and `traits.ts` — that's how `from-prompt` works, and
+`char-generated.ts` and `traits.ts`, that's how `from-prompt` works, and
 adding a new species is one entry in the `SPECIES` table.
 
 ### Where to find art you're allowed to use
 
 If you'd rather start from existing pixel art than draw your own, these are
-CC0 / public-domain sources — free for any use, including commercially:
+CC0 / public-domain sources: free for any use, including commercially:
 
 - [OpenGameArt CC0 collection](https://opengameart.org/content/cc0-resources)
 - [FreePixel animals](https://freepixel.art/browse/animals)
 - [itch.io public-domain (CC0) collection](https://itch.io/c/2975132/public-domain-cc0)
-- [awesome-cc0](https://github.com/madjin/awesome-cc0) — a broader index
+- [awesome-cc0](https://github.com/madjin/awesome-cc0). A broader index
 
 **Check the licence on the specific asset**, not just the collection it sits
 in, and record the real author in `pet.json`. "Found it on the internet" is not
 a licence.
 
 Useful reference: `char-cat.ts` is the most fully worked example.
-`packages/create-pet/src/pixel.ts` has the drawing primitives — `rect`,
+`packages/create-pet/src/pixel.ts` has the drawing primitives, `rect`,
 `round`, `ellipse`, and an `outline()` pass that traces the whole silhouette
 for you, so you draw solid shapes and get consistent linework free.
 
@@ -117,7 +117,7 @@ Art conventions worth following:
 - Work on the 48 × 52 logical grid; it's upscaled 4× into each frame.
 - Stand on the shared ground line (`LOGICAL_BASELINE`) so your pet's feet land
   on the Dock exactly like the others.
-- Keep silhouettes readable at ~40 pixels tall — at that size, a couple of
+- Keep silhouettes readable at ~40 pixels tall, at that size, a couple of
   strong identifying features beat lots of detail.
 
 ## Contributing code
@@ -136,7 +136,7 @@ A few things to know before changing behaviour:
 
 - **The sanitiser is a security boundary.** Everything an agent says passes
   through `sanitize.ts` before it can be displayed. If you touch it, add tests
-  in both directions — what must be stripped, and what must survive.
+  in both directions: what must be stripped, and what must survive.
 - **The risk classifier is biased toward precision.** A false alarm is worse
   than a missed one, because false alarms train people to ignore the feature.
   New rules need tests proving both that they fire *and* that ordinary
@@ -147,7 +147,7 @@ A few things to know before changing behaviour:
 - **Local only.** No telemetry, no analytics, no network calls. This isn't
   negotiable either.
 
-`DECISIONS.md` explains why things are the way they are — it's worth skimming
+`DECISIONS.md` explains why things are the way they are, it's worth skimming
 before proposing a change to the architecture, since most of the non-obvious
 choices are documented there along with what would need to be true to reverse
 them.
