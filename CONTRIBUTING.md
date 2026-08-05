@@ -6,13 +6,24 @@ so they come first.
 ## Contributing a pet
 
 The whole point of the `create-pet` CLI is that you shouldn't have to
-hand-assemble 80 frames at exact pixel dimensions. Draw one character, run one
-command.
+hand-assemble 80 frames at exact pixel dimensions. There are three ways in,
+easiest first.
+
+### 1. Describe it
 
 ```sh
-pnpm install
-pnpm build
+pnpm install && pnpm build
 
+node packages/create-pet/dist/bin.js from-prompt "a mint green axolotl" \
+  --license CC0-1.0 --author "Your Name" --install
+```
+
+Runs locally — no API key, no network, no cost. Good for a quick pet; if you
+want something specific, the other two routes give you full control.
+
+### 2. Bring a picture
+
+```sh
 node packages/create-pet/dist/bin.js from-image my-character.png \
   --id my-pet \
   --name "My Pet" \
@@ -21,6 +32,16 @@ node packages/create-pet/dist/bin.js from-image my-character.png \
   --author "Your Name" \
   --install
 ```
+
+Any image works — a drawing, a photo, or art you generated with an AI tool of
+your own. It gets reduced to pixels and animated through the same engine as
+the bundled pets. **If you use someone else's art, it must be licensed for
+this** (see the rules below).
+
+### 3. Bring a spritesheet
+
+If you already have an 8×10 grid of 192×208 frames, `from-sheet` takes it
+directly.
 
 `--install` puts it in your own pets folder so you can try it immediately
 (🐾 menu bar → Character). When you're happy, copy the folder into `pets/` in
@@ -68,6 +89,24 @@ state → pose → palette mapping for *every* pet, and the "failed" grey wash a
 means a new character can't drift from how the others behave.
 
 Add it to `BUNDLED_PETS` in `bundled-pets.ts`, then `pnpm gen:pets`.
+
+If you want a *parametric* character rather than a hand-drawn one, look at
+`char-generated.ts` and `traits.ts` — that's how `from-prompt` works, and
+adding a new species is one entry in the `SPECIES` table.
+
+### Where to find art you're allowed to use
+
+If you'd rather start from existing pixel art than draw your own, these are
+CC0 / public-domain sources — free for any use, including commercially:
+
+- [OpenGameArt CC0 collection](https://opengameart.org/content/cc0-resources)
+- [FreePixel animals](https://freepixel.art/browse/animals)
+- [itch.io public-domain (CC0) collection](https://itch.io/c/2975132/public-domain-cc0)
+- [awesome-cc0](https://github.com/madjin/awesome-cc0) — a broader index
+
+**Check the licence on the specific asset**, not just the collection it sits
+in, and record the real author in `pet.json`. "Found it on the internet" is not
+a licence.
 
 Useful reference: `char-cat.ts` is the most fully worked example.
 `packages/create-pet/src/pixel.ts` has the drawing primitives — `rect`,

@@ -10,3 +10,5 @@ export * from './validate.js';
 export * from './cli.js';
 export * from './char-dog.js';
 export * from './char-robot.js';
+export * from './traits.js';
+export * from './char-generated.js';

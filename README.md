@@ -152,23 +152,48 @@ it to click a button.
 
 <img src="docs/walk.png" width="420" alt="Four screenshots taken a second apart: the pet walks left along the Dock, stops and turns to face front, then walks back to the right">
 
-### Make your own
+### Make your own — just describe it
 
-Hand-assembling 80 frames at exact dimensions is why pet libraries stay tiny,
-so the CLI does it. Give it one drawing and it produces the whole sheet:
+You don't need to draw anything. Describe the pet you want and the CLI draws
+all 80 frames:
+
+```sh
+node packages/create-pet/dist/bin.js from-prompt "a purple dragon with horns" \
+  --license CC0-1.0 --author "Your Name" --install
+```
+
+```
+reading "a purple dragon with horns"
+  → dragon, purple, horns ears
+  → purple dragon, horns ears, long tail, quadruped
+drawing 80 frames…
+✓ validated on disk — ready to install
+```
+
+![Six pets generated from plain-English descriptions, each shown idle and walking](docs/prompted.png)
+
+**This runs entirely on your machine.** No API key, no account, no network
+call, nothing to pay for — it's a parametric pixel-art generator, not an image
+model. The description is matched against a vocabulary of species, colours and
+features; anything it doesn't recognise is filled in from a hash of your words,
+so the same prompt always produces the same pet.
+
+It understands things like `cat dog fox wolf bear bunny mouse bird penguin owl
+duck frog dragon lizard robot ghost blob alien hamster pig`, most colour names,
+and phrases like `floppy ears`, `long tail`, `no tail`, `green eyes`, `boxy`.
+
+`--install` writes it straight to your pets folder, so it appears in the
+Character menu immediately — no restart.
+
+**Already have art?** `from-image` takes any picture (a drawing, a photo, or
+something you generated with an AI tool of your own choosing) and pixelates it
+through the same animation engine. `from-sheet` takes a ready-made 8×10 grid,
+and `validate` checks any pet folder.
 
 ```sh
 node packages/create-pet/dist/bin.js from-image my-character.png \
   --id my-pet --name "My Pet" --license CC0-1.0 --author "Your Name" --install
 ```
-
-`--install` writes it straight to your pets folder, so it appears in the
-Character menu immediately — no restart. Your image is reduced to pixels and
-run through the same animation engine as the bundled characters, so it picks
-up the walk, the grey "failed" wash and the red "alarm" flash automatically.
-
-Already have art? `from-sheet` takes your own 8×10 grid, and `validate` checks
-any pet folder.
 
 > **Provenance is required.** Every pet must declare `license` and `author`.
 > There's no flag to skip it — a pet without them fails validation and won't

@@ -34,11 +34,13 @@ export type PetAction =
  * Window layout constants — single source of truth for both the main
  * process (hover hot-rects, Dock parking) and the renderer (CSS vars).
  *
- * The sprite is drawn at half the sheet's native frame size: art is authored
- * as pixels upscaled 4x into the 192x208 frame, so displaying at 0.5 lands on
- * an exact 2x pixel grid — crisp, and small enough to sit on the Dock.
+ * Art is authored as pixels upscaled 4x into the 192x208 frame, so one art
+ * pixel spans `4 * PET_SCALE` points. Crispness is decided in *device*
+ * pixels, so on a 2x display any multiple of 0.125 lands on whole device
+ * pixels; on a 1x display only multiples of 0.25 do. 0.375 renders the pet
+ * about 62pt tall — a bit under a Dock icon.
  */
-export const PET_SCALE = 0.25;
+export const PET_SCALE = 0.375;
 
 const SPRITE_W = Math.round(192 * PET_SCALE);
 const SPRITE_H = Math.round(208 * PET_SCALE);

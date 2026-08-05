@@ -5,6 +5,9 @@ import { PET_ID_PATTERN, SPRITE_SHEET, userPetsDir, validatePetManifest } from '
 import type { PetManifest } from '@desktop-pets/shared';
 import { assertSheetGeometry } from './sheet.js';
 import { composeSheetFromImage } from './from-image.js';
+import { buildCharacter } from './char-generated.js';
+import { composePixelSheet } from './pixelpet.js';
+import { idFromPrompt, nameFromPrompt, traitsFromPrompt } from './traits.js';
 import { validatePetDir } from './validate.js';
 
 export interface CliIO {
@@ -56,10 +59,18 @@ async function resolveField(
   return undefined;
 }
 
-async function collectManifest(flags: Flags, io: CliIO): Promise<PetManifest | undefined> {
-  const id = await resolveField('id', flags, io, { required: true, question: 'Pet id (kebab-case): ' });
-  const displayName = await resolveField('name', flags, io, { required: true, question: 'Display name: ' });
-  const description = await resolveField('description', flags, io, { required: false, question: 'Description: ' });
+async function collectManifest(
+  flags: Flags,
+  io: CliIO,
+  defaults: { id?: string; name?: string; description?: string } = {},
+): Promise<PetManifest | undefined> {
+  const id =
+    (await resolveField('id', flags, io, { required: !defaults.id, question: 'Pet id (kebab-case): ' })) ?? defaults.id;
+  const displayName =
+    (await resolveField('name', flags, io, { required: !defaults.name, question: 'Display name: ' })) ?? defaults.name;
+  const description =
+    (await resolveField('description', flags, io, { required: false, question: 'Description: ' })) ??
+    defaults.description;
   // Provenance is mandatory — refuse to emit a pet without it (brief §2).
   const license = await resolveField('license', flags, io, { required: true, question: 'License (SPDX id, REQUIRED): ' });
   const author = await resolveField('author', flags, io, { required: true, question: 'Author (REQUIRED): ' });
@@ -100,9 +111,20 @@ function writePet(outDir: string, manifest: PetManifest, sheet: Buffer, io: CliI
   io.log(`  ${manifest.displayName} — ${manifest.license} by ${manifest.author}`);
 }
 
+/**
+ * `--install` puts the pet straight where the app looks for it, so it appears
+ * in the menu-bar picker without any copying by hand.
+ */
+function resolveOutDir(flags: Flags, id: string): string {
+  if (flags['install'] === true) return path.join(userPetsDir(), id);
+  if (typeof flags['out'] === 'string') return flags['out'] as string;
+  return path.join(process.cwd(), id);
+}
+
 const USAGE = `create-pet — build a conformant desktop-pets pet
 
 Usage:
+  create-pet from-prompt "<description>" --license <SPDX> --author <author> [--install | --out <dir>] [--id <id>] [--name <name>]
   create-pet from-image <image> --id <id> --name <name> --license <SPDX> --author <author> [--install | --out <dir>] [--description <text>] [--author-url <url>] [--generator <tool>]
   create-pet from-sheet <sheet.webp> --id <id> --name <name> --license <SPDX> --author <author> [--install | --out <dir>] ...
   create-pet validate <pet-dir>
@@ -111,6 +133,7 @@ Usage:
              ${userPetsDir()}
 
 Notes:
+  - from-prompt draws the pet locally. No API key, no network, no cost.
   - license and author are REQUIRED; the tool refuses to emit a pet without them.
   - the spritesheet must be the locked ${SPRITE_SHEET.columns}×${SPRITE_SHEET.rows} grid of ${SPRITE_SHEET.frameWidth}×${SPRITE_SHEET.frameHeight} frames.
   - id must match ${PET_ID_PATTERN.source}.`;
@@ -138,6 +161,50 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     io.error('✗ invalid pet:');
     for (const e of res.errors) io.error(`  - ${e}`);
     return 1;
+  }
+
+  if (cmd === 'from-prompt') {
+    const prompt = positionals.join(' ').trim();
+    if (!prompt) {
+      io.error('usage: create-pet from-prompt "<description>" --license <SPDX> --author <you>');
+      return 2;
+    }
+
+    const { traits, matched } = traitsFromPrompt(prompt);
+    io.log(`reading "${prompt}"`);
+    io.log(`  → ${matched.length > 0 ? matched.join(', ') : 'nothing recognised — picking for you'}`);
+    io.log(`  → ${traits.colourName} ${traits.species}, ${traits.ears} ears, ${traits.tail} tail, ${traits.gait}`);
+
+    const manifest = await collectManifest(flags, io, {
+      id: idFromPrompt(prompt),
+      name: nameFromPrompt(prompt),
+      description: prompt,
+    });
+    if (!manifest) return 1;
+
+    let sheet: Buffer;
+    try {
+      io.log('drawing 80 frames…');
+      sheet = await composePixelSheet(buildCharacter(manifest.id, traits));
+      await assertSheetGeometry(sheet);
+    } catch (err) {
+      io.error(`could not draw this pet: ${(err as Error).message}`);
+      return 1;
+    }
+
+    const outDir = resolveOutDir(flags, manifest.id);
+    writePet(outDir, manifest, sheet, io);
+    if (flags['install'] === true) {
+      io.log('✓ installed — pick it from the 🐾 menu bar icon under "Character"');
+    }
+    const check = validatePetDir(outDir);
+    if (!check.ok) {
+      io.error('post-write validation failed:');
+      for (const e of check.errors) io.error(`  - ${e}`);
+      return 1;
+    }
+    io.log('✓ validated on disk — ready to install');
+    return 0;
   }
 
   if (cmd === 'from-image' || cmd === 'from-sheet') {
@@ -170,14 +237,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
       return 1;
     }
 
-    // `--install` puts the pet straight where the app looks for it, so it
-    // appears in the menu-bar picker without any copying by hand.
-    const outDir =
-      flags['install'] === true
-        ? path.join(userPetsDir(), manifest.id)
-        : typeof flags['out'] === 'string'
-          ? (flags['out'] as string)
-          : path.join(process.cwd(), manifest.id);
+    const outDir = resolveOutDir(flags, manifest.id);
     writePet(outDir, manifest, sheet, io);
     if (flags['install'] === true) {
       io.log('✓ installed — pick it from the 🐾 menu bar icon under "Character"');
