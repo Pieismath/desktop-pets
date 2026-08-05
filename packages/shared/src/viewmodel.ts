@@ -38,20 +38,25 @@ export type PetAction =
  * as pixels upscaled 4x into the 192x208 frame, so displaying at 0.5 lands on
  * an exact 2x pixel grid — crisp, and small enough to sit on the Dock.
  */
-export const PET_SCALE = 0.5;
+export const PET_SCALE = 0.25;
 
 const SPRITE_W = Math.round(192 * PET_SCALE);
 const SPRITE_H = Math.round(208 * PET_SCALE);
+/** Room reserved above the sprite for the speech bubble. */
+const SPRITE_TOP = 92;
+const WINDOW_W = 220;
 
 export const PET_WINDOW = {
-  width: 220,
-  height: 214,
+  width: WINDOW_W,
+  // Everything below the bubble follows the sprite, so changing PET_SCALE
+  // resizes the window correctly without any other edits.
+  height: SPRITE_TOP + SPRITE_H + 24,
   scale: PET_SCALE,
-  sprite: { x: Math.round((220 - SPRITE_W) / 2), y: 92, w: SPRITE_W, h: SPRITE_H },
-  bubble: { x: 2, y: 0, w: 216, h: 86 },
-  tag: { y: 194, h: 18 },
+  sprite: { x: Math.round((WINDOW_W - SPRITE_W) / 2), y: SPRITE_TOP, w: SPRITE_W, h: SPRITE_H },
+  bubble: { x: 2, y: 0, w: WINDOW_W - 4, h: 86 },
+  tag: { y: SPRITE_TOP + SPRITE_H + 3, h: 18 },
   /** Distance from the window's top to the shared ground line. */
-  feetOffset: 92 + Math.round(SPRITE_BASELINE_Y * PET_SCALE),
+  feetOffset: SPRITE_TOP + Math.round(SPRITE_BASELINE_Y * PET_SCALE),
 } as const;
 
 /** Everything the pet window needs to render. Pushed whole; renderer is dumb. */

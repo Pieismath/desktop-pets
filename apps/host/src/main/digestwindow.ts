@@ -13,18 +13,18 @@ export class DigestWindow {
     return !!this.win && !this.win.isDestroyed() && this.win.isVisible();
   }
 
-  toggle(html: string, near: { x: number; y: number }): void {
+  toggle(html: string, near: { x: number; y: number }, height?: number): void {
     if (this.isOpen()) {
       this.close();
       return;
     }
-    this.open(html, near);
+    this.open(html, near, height);
   }
 
-  open(html: string, near: { x: number; y: number }): void {
+  open(html: string, near: { x: number; y: number }, contentHeight?: number): void {
     this.close();
-    const width = 300;
-    const height = 340;
+    const width = 330;
+    const height = contentHeight ?? 400;
     const display = screen.getDisplayNearestPoint(near);
     const wa = display.workArea;
     const x = Math.min(Math.max(near.x - width / 2, wa.x + 8), wa.x + wa.width - width - 8);
@@ -40,6 +40,8 @@ export class DigestWindow {
       alwaysOnTop: true,
       skipTaskbar: true,
       show: false,
+      roundedCorners: true,
+      backgroundColor: '#ffffff',
       webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, javascript: false },
     });
     this.win.setAlwaysOnTop(true, 'screen-saver');

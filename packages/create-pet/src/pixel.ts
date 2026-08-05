@@ -233,7 +233,6 @@ export interface Pose {
   mouth?: MouthStyle;
   /** Squash factor applied to the body block only. */
   squash?: number;
-  shadow?: number;
 }
 
 /** A drawable character: the same pose vocabulary, two viewpoints. */
@@ -303,7 +302,3 @@ export function drawDots(c: PixelCanvas, x: number, y: number, active: number): 
   }
 }
 
-export function drawShadow(c: PixelCanvas, cx: number, dx: number, scale: number): void {
-  if (scale <= 0) return;
-  c.ellipse(cx + dx * 0.5, LOGICAL_BASELINE + 2, 11 * scale, 2 * scale, [0, 0, 0, 46]);
-}

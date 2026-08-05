@@ -57,7 +57,6 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
           eyes: 'open',
           ears: bob - 1,
           tail: i % 2 === 0 ? 1 : 0,
-          shadow: 0.85,
         },
       };
       if (state === 'running-left') f.mirror = true;
@@ -87,7 +86,6 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
           eyes: peak ? 'happy' : 'open',
           mouth: 'open',
           ears: dy < 0 ? -2 : 1,
-          shadow: 1 + dy / 12,
         },
       };
       if (peak) {

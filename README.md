@@ -48,8 +48,10 @@ The same event reaches you differently depending on what you're doing:
 | Idle more than 10 minutes | notification, and it's kept for the digest |
 | Screen-sharing or in a call | everything below `alarm` stays quiet |
 
-Click the pet any time for **"while you were away"** — what finished, what's
-blocked and for how long, what failed. All local.
+Click the pet any time for **"while you were away"** — a plain, light panel
+listing what finished, what's blocked and for how long, and what failed. It
+sizes itself to its contents and shows at most a few rows per section, so it
+stays glanceable. All local.
 
 <img src="docs/digest.png" width="320" alt="A panel titled 'While you were away' listing blocked, completed, failed and risky items per project">
 
@@ -225,11 +227,11 @@ If that prints a version, ignore the warning. If not:
 hooks are read at startup. Set `DESKTOP_PETS_DEBUG=1` in the terminal running
 Claude to see what the hook is doing.
 
-**Too big / too small.** The pet renders about 80 pt tall — a little taller
-than a Dock icon. Change `PET_SCALE` in `packages/shared/src/viewmodel.ts` to
-resize it. Because the art is a pixel grid upscaled 4×, only these values stay
-crisp: `0.25` (half the size, ~42 pt), `0.5` (the default), `0.75`, `1.0`.
-Anything in between renders on half-pixels and looks soft.
+**Too big / too small.** The pet renders about 41 pt tall — roughly half a
+Dock icon. Change `PET_SCALE` in `packages/shared/src/viewmodel.ts` to resize
+it; the window layout follows automatically. Because the art is a pixel grid
+upscaled 4×, only these values stay crisp: `0.25` (the default), `0.5`,
+`0.75`, `1.0`. Anything in between renders on half-pixels and looks soft.
 
 ---
 

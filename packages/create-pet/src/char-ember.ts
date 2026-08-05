@@ -4,7 +4,6 @@
  */
 import {
   LOGICAL_BASELINE,
-  drawShadow,
   type Palette,
   type PixelCanvas,
   type PixelCharacter,
@@ -104,7 +103,6 @@ function drawEmber(c: PixelCanvas, pose: Pose, pal: Palette): void {
   const X = (v: number) => v + dx;
   const Y = (v: number) => v + dy;
 
-  drawShadow(c, CX, dx, pose.shadow ?? 1);
 
   const legPose: Record<number, [number, number, number, number]> = {
     0: [0, 7, 0, 7],
@@ -161,7 +159,6 @@ function drawEmberSide(c: PixelCanvas, pose: Pose, pal: Palette): void {
   const X = (v: number) => v + dx;
   const Y = (v: number) => v + dy;
 
-  drawShadow(c, CX, dx, pose.shadow ?? 1);
 
   const swing: Record<number, [number, number, number, number]> = {
     0: [0, 9, 0, 9],

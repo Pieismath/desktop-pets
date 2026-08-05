@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDigest, renderDigestHtml } from './digest.js';
+import { buildDigest, digestHeight, renderDigestHtml } from './digest.js';
 import type { HistoryEntry } from './history.js';
 
 const NOW = 1_000_000_000_000;
@@ -37,11 +37,35 @@ describe('buildDigest', () => {
   });
 });
 
+describe('digestHeight', () => {
+  it('is compact when there is nothing to report', () => {
+    expect(digestHeight(buildDigest([], [], NOW))).toBe(210);
+  });
+
+  it('grows with the number of sections and rows', () => {
+    const one = digestHeight(buildDigest([history[0]!], [], NOW));
+    const many = digestHeight(buildDigest(history, [{ project: 'x', since: NOW, alarm: false }], NOW));
+    expect(many).toBeGreaterThan(one);
+  });
+
+  it('never exceeds a screen-friendly maximum', () => {
+    const lots = Array.from({ length: 40 }, (_, i) => ({
+      at: NOW - i * 1000,
+      kind: 'success' as const,
+      project: `p${i}`,
+      detail: 'done',
+      sessionKey: 's',
+    }));
+    expect(digestHeight(buildDigest(lots, [], NOW))).toBeLessThanOrEqual(560);
+  });
+});
+
 describe('renderDigestHtml', () => {
   it('produces self-contained HTML with no scripts or external loads', () => {
     const html = renderDigestHtml(buildDigest(history, [{ project: 'alpha', since: NOW - min(3), alarm: false }], NOW), NOW);
     expect(html).toContain('While you were away');
     expect(html).toContain('blocked 3m');
+    expect(html).toContain('background:#fff'); // light, not the old dark panel
     expect(html).not.toMatch(/<script/i);
     expect(html).not.toMatch(/https?:\/\//);
     expect(html).toContain("default-src 'none'");

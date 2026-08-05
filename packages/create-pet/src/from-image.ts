@@ -15,7 +15,6 @@ import {
   LOGICAL_BASELINE,
   PixelCanvas,
   desaturate,
-  drawShadow,
   towardRed,
   type RGBA,
 } from './pixel.js';
@@ -70,7 +69,6 @@ async function renderFrame(sprite: Sprite, state: SpriteStateName, i: number): P
   const pose = f.pose;
   const c = new PixelCanvas();
 
-  drawShadow(c, CX, pose.dx ?? 0, pose.shadow ?? 1);
 
   // Only the whole-body parts of the pose apply to an arbitrary image; limb
   // and ear offsets belong to characters that were drawn with limbs.

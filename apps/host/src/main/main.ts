@@ -11,7 +11,7 @@ import {
 import type { BubbleButton, PetAction, PetViewModel, Reaction, SpriteStateName } from '@desktop-pets/shared';
 import { DecisionBroker } from './broker.js';
 import { ConfigStore } from './config.js';
-import { buildDigest, renderDigestHtml, type LiveBlocked } from './digest.js';
+import { buildDigest, digestHeight, renderDigestHtml, type LiveBlocked } from './digest.js';
 import { DigestWindow } from './digestwindow.js';
 import { agentBundleId, computeTier, tierFiresNotification, tierShowsBubble } from './escalation.js';
 import { focusApp } from './focusapp.js';
@@ -140,7 +140,7 @@ app.whenReady().then(async () => {
         .filter((s) => s.waitingSince || s.alarm)
         .map((s) => ({ project: s.name, since: s.alarm?.since ?? s.waitingSince ?? Date.now(), alarm: !!s.alarm }));
       const summary = buildDigest(history.all(), liveBlocked, Date.now());
-      digestWindow.toggle(renderDigestHtml(summary, Date.now()), near);
+      digestWindow.toggle(renderDigestHtml(summary, Date.now()), near, digestHeight(summary));
     };
 
     // Pets that are currently strolling along the Dock, and which way.

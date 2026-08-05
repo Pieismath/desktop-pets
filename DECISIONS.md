@@ -313,6 +313,26 @@ treatments from whatever the character's own colours are. Adding a character
 is one file and a manifest entry — no animation timing to re-specify, and no
 way for a new pet to drift from the others' behaviour.
 
+### D22 — Smaller, shadowless, and a light digest panel
+
+Three presentation changes, all requested after living with it:
+
+- **`PET_SCALE` 0.5 → 0.25**, so the pet renders ~29 × 41 pt — about half a
+  Dock icon. The window layout is now derived from the scale (height, tag
+  position and feet offset all follow), so changing it is a one-line edit
+  rather than four coordinated ones.
+- **The ground-shadow ellipse is gone.** At this size it read as a smudge on
+  the Dock rather than grounding. `drawShadow` and the `shadow` pose field
+  were removed outright rather than left as dead options, so no character can
+  reintroduce it by accident.
+- **The digest panel is light and plainer.** It was near-black and dense. It's
+  now a white card (with a soft slate dark-mode variant), bigger type, a
+  count per section, at most four rows each with "and N more", and friendlier
+  section names ("Waiting on you" rather than "Blocked now"). Because the
+  panel runs with JavaScript disabled it can't measure itself, so
+  `digestHeight()` sizes the window from the content — which is what removed
+  the scrollbar.
+
 ### D13 — Escalation: agent-app identity via inherited bundle id, with a term-program fallback
 
 The "is the agent's own app focused?" test compares the frontmost bundle id

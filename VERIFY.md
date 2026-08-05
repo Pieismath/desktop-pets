@@ -112,9 +112,10 @@ Verified live (host + real events): the digest panel showed **Blocked now**
       pet's attention pulse **grows** the longer it waits (subtle at 2 min,
       insistent at 10 min). While you're away, it re-notifies every ~5 min
       with the growing wait time.
-- [ ] Click the pet (or 🐾 menu → "While you were away…"): a panel lists what
-      completed, what's blocked and for how long, and what failed. Press Esc
-      or click away to dismiss.
+- [ ] Click the pet (or 🐾 menu → "While you were away…"): a **light**, plainly
+      laid out panel lists what's waiting on you, what finished and what
+      failed, sized to its contents with no scrollbar. Press Esc or click away
+      to dismiss.
 - [ ] Confirm the history file at
       `~/Library/Application Support/desktop-pets/history.jsonl` stays bounded
       and never leaves the machine (no network calls anywhere in the app).
@@ -130,12 +131,13 @@ re-derives the ledge each time:
 | 72 | 910 | 726 | 910 ✓ |
 
 While walking, x moved 693 → 683 → 741 → 803 → 864 → 880 and y never changed,
-so it travels *along* the bar rather than drifting off it. Rendered size is
-58–82 pt wide × 80–92 pt tall.
+so it travels *along* the bar rather than drifting off it. At the default
+`PET_SCALE` of 0.25 the pet renders about **29 × 41 pt** — roughly half a Dock
+icon — and there is no drop shadow under it.
 
-- [ ] `pnpm start` — a small ginger pixel cat stands on the Dock, roughly the
-      height of a Dock icon, crisp (no blurring/anti-aliasing). Ears, whiskers
-      and green slit eyes should be legible at that size.
+- [ ] `pnpm start` — a small ginger pixel cat stands on the Dock, about half
+      the height of a Dock icon, crisp (no blurring/anti-aliasing) and with no
+      shadow oval beneath it.
 - [ ] Every pet is pixel art — there is no smooth/vector pet any more. A pet
       built from your own photo or drawing (`from-image`) comes out pixelated
       too, and shares the grey "failed" wash and red "alarm" flash.

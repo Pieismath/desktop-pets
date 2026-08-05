@@ -9,7 +9,6 @@
  */
 import {
   LOGICAL_BASELINE,
-  drawShadow,
   type Palette,
   type PixelCanvas,
   type PixelCharacter,
@@ -109,7 +108,6 @@ function drawRobot(c: PixelCanvas, pose: Pose, pal: Palette): void {
   const X = (v: number) => v + dx;
   const Y = (v: number) => v + dy;
 
-  drawShadow(c, CX, dx, pose.shadow ?? 1);
 
   // blocky legs
   const legPose: Record<number, [number, number, number, number]> = {
@@ -166,7 +164,6 @@ function drawRobotSide(c: PixelCanvas, pose: Pose, pal: Palette): void {
   const X = (v: number) => v + dx;
   const Y = (v: number) => v + dy;
 
-  drawShadow(c, CX, dx, pose.shadow ?? 1);
 
   // Bipedal, unlike the animals: two legs striding, not four.
   const swing: Record<number, [number, number, number, number]> = {

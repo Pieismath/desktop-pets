@@ -7,7 +7,6 @@
  */
 import {
   LOGICAL_BASELINE,
-  drawShadow,
   type Palette,
   type PixelCanvas,
   type PixelCharacter,
@@ -81,7 +80,6 @@ function drawDog(c: PixelCanvas, pose: Pose, pal: Palette): void {
   const X = (v: number) => v + dx;
   const Y = (v: number) => v + dy;
 
-  drawShadow(c, CX, dx, pose.shadow ?? 1);
 
   const legPose: Record<number, [number, number, number, number]> = {
     0: [0, 6, 0, 6],
@@ -168,7 +166,6 @@ function drawDogSide(c: PixelCanvas, pose: Pose, pal: Palette): void {
   const X = (v: number) => v + dx;
   const Y = (v: number) => v + dy;
 
-  drawShadow(c, CX, dx, pose.shadow ?? 1);
 
   const swing: Record<number, [number, number, number, number]> = {
     0: [0, 9, 0, 9],
