@@ -121,9 +121,17 @@ Verified live (host + real events): the digest panel showed **Blocked now**
 
 ## Look and placement (Mochi, the default)
 
-Verified live: the pet stands with its feet exactly on the Dock's top edge
-(Dock top 898 → window y 714), and patrol was captured walking left, settling
-front-facing, then walking back right along the Dock.
+Verified live by measurement, twice, with different Dock sizes — the pet
+re-derives the ledge each time:
+
+| Dock height | Dock top | Pet window y | y + feet offset (184) |
+|---|---|---|---|
+| 84 | 898 | 714 | 898 ✓ |
+| 72 | 910 | 726 | 910 ✓ |
+
+While walking, x moved 693 → 683 → 741 → 803 → 864 → 880 and y never changed,
+so it travels *along* the bar rather than drifting off it. Rendered size is
+58–82 pt wide × 80–92 pt tall.
 
 - [ ] `pnpm start` — a small ginger pixel cat stands on the Dock, roughly the
       height of a Dock icon, crisp (no blurring/anti-aliasing). Ears, whiskers
@@ -149,7 +157,8 @@ the active pet, standing correctly on the Dock.
       first, with the active one ticked. Hovering shows licence and author.
 - [ ] Pick a different one: the pet changes immediately, no restart. Quit and
       relaunch — it's still the one you chose.
-- [ ] Switch between **Mochi** and **Ember** — both bundled, both pixel art.
+- [ ] Switch between **Mochi**, **Biscuit**, **Bolt** and **Ember** — all
+      bundled, all pixel art.
 - [ ] Build and install one of your own, then check it appears in the menu
       **without restarting**:
       ```sh

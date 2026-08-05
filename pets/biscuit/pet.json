@@ -1,0 +1,9 @@
+{
+  "id": "biscuit",
+  "displayName": "Biscuit",
+  "description": "A tan dog with floppy ears and a tail that never stops.",
+  "spritesheet": "spritesheet.webp",
+  "license": "CC0-1.0",
+  "author": "Desktop Pets contributors",
+  "generator": "procedural pixel art, @desktop-pets/create-pet (drawn in code by Claude, Anthropic)"
+}

@@ -31,7 +31,6 @@ export async function runSmoke(win: ManagedWindow, outDir: string): Promise<neve
     const vm: PetViewModel = {
       sheetUrl: win.getVM().sheetUrl,
       spriteState: state.name,
-      tag: 'Pip',
     };
     if (state.name === 'waiting') {
       vm.bubble = {
@@ -64,7 +63,7 @@ export async function runSmoke(win: ManagedWindow, outDir: string): Promise<neve
 
   // Animation advance: `working` steps every ~137ms, so two captures 350ms
   // apart must differ if the CSS steps() animation is actually running.
-  win.setVM({ sheetUrl: win.getVM().sheetUrl, spriteState: 'working', tag: 'Pip' });
+  win.setVM({ sheetUrl: win.getVM().sheetUrl, spriteState: 'working' });
   await delay(200);
   const a = await win.capture();
   await delay(350);

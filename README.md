@@ -64,7 +64,7 @@ blocked and for how long, what failed. All local.
   can drive the pet too, via three tools (`pet_status`, `pet_react`, `pet_say`).
 - **Local only.** No telemetry, no analytics, no network calls of any kind.
   The pet talks to agents over a Unix socket with a per-run random token.
-- Treat it as **beta**. It's well tested (202 unit tests, CI green) and has
+- Treat it as **beta**. It's well tested (204 unit tests, CI green) and has
   been driven end-to-end against the real hook contract, but it hasn't lived
   through months of daily use. `DECISIONS.md` documents every judgment call,
   including the one path I couldn't verify on my machine.
@@ -97,7 +97,7 @@ no Dock icon of its own.)
 Useful extras:
 
 ```sh
-pnpm test    # typecheck + 202 unit tests
+pnpm test    # typecheck + 204 unit tests
 pnpm smoke   # launch, screenshot all 10 states to captures/, exit
 ```
 
@@ -129,14 +129,15 @@ claude mcp add desktop-pets -- node "$PWD/packages/mcp/dist/bin.js"
 
 ## Characters
 
-Two pets ship with the app. Both are original pixel art, drawn in code, CC0 —
-they have no special status, they're just installed:
+Four pets ship with the app — a cat, a dog, a robot and a fox. All are
+original pixel art, drawn in code, CC0. They have no special status; they're
+just installed, exactly like one you make yourself:
 
-![Mochi and Ember shown in idle, walking, working and alarm states](docs/pets.png)
+![The four bundled pets — cat, dog, robot and fox — each shown idle, walking, working and alarmed](docs/pets.png)
 
 **To see and switch them: 🐾 menu bar → Character.** The list shows every
-installed pet with its licence and author, switching is instant, and your
-choice is remembered.
+installed pet with its licence and author, switching is instant (no restart),
+and your choice is remembered.
 
 Every pet animates through the same ten states:
 
@@ -224,9 +225,11 @@ If that prints a version, ignore the warning. If not:
 hooks are read at startup. Set `DESKTOP_PETS_DEBUG=1` in the terminal running
 Claude to see what the hook is doing.
 
-**Too big / too small.** Change `PET_SCALE` in
-`packages/shared/src/viewmodel.ts`. Use `0.5`, `0.75` or `1.0` — those land on
-exact pixel multiples and stay crisp.
+**Too big / too small.** The pet renders about 80 pt tall — a little taller
+than a Dock icon. Change `PET_SCALE` in `packages/shared/src/viewmodel.ts` to
+resize it. Because the art is a pixel grid upscaled 4×, only these values stay
+crisp: `0.25` (half the size, ~42 pt), `0.5` (the default), `0.75`, `1.0`.
+Anything in between renders on half-pixels and looks soft.
 
 ---
 

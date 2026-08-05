@@ -8,3 +8,5 @@ export * from './bundled-pets.js';
 export * from './from-image.js';
 export * from './validate.js';
 export * from './cli.js';
+export * from './char-dog.js';
+export * from './char-robot.js';

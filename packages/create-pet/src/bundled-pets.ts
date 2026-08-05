@@ -5,7 +5,9 @@
  */
 import type { PetManifest } from '@desktop-pets/shared';
 import { CAT } from './char-cat.js';
+import { DOG } from './char-dog.js';
 import { EMBER } from './char-ember.js';
+import { ROBOT } from './char-robot.js';
 import type { PixelCharacter } from './pixel.js';
 
 const GENERATOR = 'procedural pixel art, @desktop-pets/create-pet (drawn in code by Claude, Anthropic)';
@@ -37,7 +39,29 @@ export const EMBER_MANIFEST: PetManifest = {
   generator: GENERATOR,
 };
 
+export const BISCUIT_MANIFEST: PetManifest = {
+  id: 'biscuit',
+  displayName: 'Biscuit',
+  description: 'A tan dog with floppy ears and a tail that never stops.',
+  spritesheet: 'spritesheet.webp',
+  license: 'CC0-1.0',
+  author: 'Desktop Pets contributors',
+  generator: GENERATOR,
+};
+
+export const BOLT_MANIFEST: PetManifest = {
+  id: 'bolt',
+  displayName: 'Bolt',
+  description: 'A small steel robot whose screen face tells you what it thinks.',
+  spritesheet: 'spritesheet.webp',
+  license: 'CC0-1.0',
+  author: 'Desktop Pets contributors',
+  generator: GENERATOR,
+};
+
 export const BUNDLED_PETS: BundledPet[] = [
   { character: CAT, manifest: MOCHI_MANIFEST, isDefault: true },
+  { character: DOG, manifest: BISCUIT_MANIFEST },
+  { character: ROBOT, manifest: BOLT_MANIFEST },
   { character: EMBER, manifest: EMBER_MANIFEST },
 ];
