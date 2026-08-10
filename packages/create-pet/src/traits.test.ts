@@ -77,6 +77,7 @@ describe('naming helpers', () => {
 
   it('derives a readable display name', () => {
     expect(nameFromPrompt('a purple dragon')).toBe('Purple Dragon');
+    expect(nameFromPrompt('a purple dragon with horns')).toBe('Purple Dragon Horns');
     expect(nameFromPrompt('')).toBe('My Pet');
   });
 

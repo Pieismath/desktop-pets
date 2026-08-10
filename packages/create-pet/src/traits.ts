@@ -262,7 +262,7 @@ export function nameFromPrompt(prompt: string): string {
   const words = prompt
     .trim()
     .split(/\s+/)
-    .filter((w) => !['a', 'an', 'the'].includes(w.toLowerCase()))
+    .filter((w) => !['a', 'an', 'the', 'with', 'and', 'of', 'that', 'has'].includes(w.toLowerCase()))
     .slice(0, 3)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
   return words.join(' ').slice(0, 64) || 'My Pet';
