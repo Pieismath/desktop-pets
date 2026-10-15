@@ -28,6 +28,9 @@ export const CAT_PALETTE: Palette = {
   eyeWhite: [255, 253, 245, 255],
   eyeDark: [38, 24, 14, 255],
   accent: [122, 212, 106, 255], // green iris
+  // hand-drawn pets wear nothing; these keep the palette total
+  hair: [78, 56, 44, 255],
+  cloth: [122, 132, 148, 255],
 };
 
 // ------------------------------------------------------------- front view

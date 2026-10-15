@@ -148,3 +148,38 @@ describe('create-pet CLI — validate subcommand', () => {
     expect(badIO.err.join('\n')).toMatch(/license/i);
   }, 45000);
 });
+
+describe('create-pet CLI — --ai uses the caller’s own key', () => {
+  const withoutKey = async <T>(fn: () => Promise<T>): Promise<T> => {
+    const had = process.env['ANTHROPIC_API_KEY'];
+    delete process.env['ANTHROPIC_API_KEY'];
+    try {
+      return await fn();
+    } finally {
+      if (had !== undefined) process.env['ANTHROPIC_API_KEY'] = had;
+    }
+  };
+
+  it('refuses to run without one, and says where to get it', async () => {
+    const io = fakeIO();
+    const code = await withoutKey(() =>
+      runCli(['from-prompt', 'a teapot', '--ai', '--license', 'CC0-1.0', '--author', 'T', '--out', tmp()], io),
+    );
+    expect(code).toBe(2);
+    const err = io.err.join('\n');
+    expect(err).toMatch(/ANTHROPIC_API_KEY/);
+    expect(err).toMatch(/billed to your account/);
+    // and it must not have drawn or written anything
+    expect(io.out.join('\n')).not.toMatch(/drawing 80 frames/);
+  });
+
+  it('never reaches for the network unless --ai is passed', async () => {
+    const out = tmp();
+    const io = fakeIO();
+    const code = await withoutKey(() =>
+      runCli(['from-prompt', 'a ginger cat', '--license', 'CC0-1.0', '--author', 'T', '--out', out], io),
+    );
+    expect(code).toBe(0);
+    expect(io.err.join('\n')).not.toMatch(/API key/);
+  }, 45000);
+});

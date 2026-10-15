@@ -25,6 +25,9 @@ export const DOG_PALETTE: Palette = {
   eyeWhite: [255, 252, 246, 255],
   eyeDark: [46, 30, 18, 255],
   accent: [120, 80, 44, 255],
+  // hand-drawn pets wear nothing; these keep the palette total
+  hair: [78, 56, 44, 255],
+  cloth: [122, 132, 148, 255],
 };
 
 function dogEyes(c: PixelCanvas, ox: number, headY: number, style: Pose['eyes'], pal: Palette): void {

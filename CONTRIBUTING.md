@@ -91,8 +91,53 @@ means a new character can't drift from how the others behave.
 Add it to `BUNDLED_PETS` in `bundled-pets.ts`, then `pnpm gen:pets`.
 
 If you want a *parametric* character rather than a hand-drawn one, look at
-`char-generated.ts` and `traits.ts`, that's how `from-prompt` works, and
-adding a new species is one entry in the `SPECIES` table.
+`traits.ts` (words in, parts out) with `char-generated.ts` and
+`char-person.ts` (parts in, pixels out). That's how `from-prompt` works.
+
+There are two body plans. `char-generated.ts` draws the beast: legs, tail,
+body, head, ears, muzzle. `char-person.ts` draws the humanoid: head, torso,
+arms, legs, plus hair, an outfit, a hat, glasses and something in one hand.
+Hats, glasses and held items are exported from `char-person.ts` and used by
+both, which is why a cat can wear a wizard hat.
+
+Adding to it, cheapest first:
+
+- **A word for something that already exists** — one entry in `ALIASES`
+  (`corgi` onto `dog`, `mage` onto `wizard`).
+- **A look** — one entry in `VARIANTS`: `tiger` is a cat with orange fur and
+  stripes; `zebra` is a horse in white with the same stripes.
+- **A new thing** — one entry in `SPECIES` (animals) or `PEOPLE` (people).
+  Presets are partial: list only what makes it distinctive and the rest comes
+  from `BEAST_DEFAULTS` or `HUMAN_DEFAULTS`. A wizard is four fields.
+- **A new part** — a kind added to the relevant union, a case in the draw
+  function, and a row in the matching `*_WORDS` table. This is the one that
+  widens what every prompt can ask for, not just one entry.
+
+A test draws every word in the vocabulary, so a typo anywhere in those tables
+fails the build rather than shipping a broken pet.
+
+`pictograph.ts` is the fallback for things that are not creatures, in two
+layers: a hand-written table for common words, and `concepts-cldr.ts` for the
+long tail, generated from Unicode CLDR by `pnpm gen:concepts` and committed —
+nothing fetches at build or run time. The curated layer wins on overlap,
+because CLDR records synonyms rather than primary meaning. Matching is n-gram
+lookup rather than one huge alternation, since it runs on every keystroke in
+the browser; the winner is the longest match and then the rightmost, because
+English noun phrases put the head last. `from-pictograph.ts` rasterises it with sharp, from Twemoji SVGs shipped as a
+dependency. That is what makes these pets publishable: we know exactly which
+artwork produced them, and CC-BY 4.0 permits redistribution with credit, which
+the CLI writes into each `pet.json`. The system emoji font stays as a fallback
+for glyphs Twemoji lacks, and that path reports an unknown licence, because
+text renderers fall back per character invisibly and no font can honestly be
+named as the one that drew it.
+
+`ai.ts` is the optional `--ai` path. The part lists in `traits.ts` are exported
+as `as const` arrays and the JSON schema is generated from them, so adding a
+part to a union automatically offers it to the model — but only once the draw
+function can render it, because the type and the schema come from the same
+array. Everything the model returns is validated before use, and anything
+invalid falls back to the offline reading. Its tests inject a stub transport;
+nothing in the suite touches the network.
 
 ### Where to find art you're allowed to use
 

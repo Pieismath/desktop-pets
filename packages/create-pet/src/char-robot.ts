@@ -27,6 +27,9 @@ export const ROBOT_PALETTE: Palette = {
   eyeWhite: [236, 250, 255, 255],
   eyeDark: [26, 34, 44, 255],
   accent: [77, 216, 255, 255], // screen glow
+  // hand-drawn pets wear nothing; these keep the palette total
+  hair: [78, 56, 44, 255],
+  cloth: [122, 132, 148, 255],
 };
 
 /** The face is a lit screen, so "eyes" are shapes drawn on it. */

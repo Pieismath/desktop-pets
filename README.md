@@ -13,7 +13,7 @@
   <a href="https://github.com/Pieismath/desktop-pets/actions/workflows/ci.yml"><img src="https://github.com/Pieismath/desktop-pets/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
   <img src="https://img.shields.io/badge/platform-macOS-lightgrey" alt="macOS">
-  <img src="https://img.shields.io/badge/tests-222%20passing-brightgreen" alt="222 tests">
+  <img src="https://img.shields.io/badge/tests-272%20passing-brightgreen" alt="272 tests">
   <img src="https://img.shields.io/badge/telemetry-none-success" alt="No telemetry">
 </p>
 
@@ -149,9 +149,109 @@ node packages/create-pet/dist/bin.js from-prompt "a purple dragon with horns" \
 
 **This runs entirely on your machine.** No API key, no account, no network
 call, nothing to pay for: it's a parametric pixel-art generator, not an image
-model. It knows ~26 species, ~30 colours and phrases like `floppy ears`,
-`long tail`, `green eyes`, `boxy`. Anything it doesn't recognise is filled in
-from a hash of your words, so the same description always gives the same pet.
+model.
+
+It builds a character out of parts rather than picking one off a list, which
+is what lets it draw more than animals. There are two body plans, a beast and
+a person, and a prompt can set any part of either:
+
+| | |
+|---|---|
+| **what it is** | 82 shapes under 507 words, so `tiger`, `corgi`, `t-rex`, `guinea pig`, `wizard`, `barista` and `an asian man` all land somewhere sensible |
+| **colour** | 66 of them, with shades (`dark green`, `pale blue`) and the endings people type (`golden`, `greenish`) |
+| **on a person** | skin tone, hair (`long`, `bun`, `afro`, `ponytail`), beards, an outfit (`suit`, `robe`, `hoodie`, `scrubs`, `armour`) |
+| **on anything** | a hat (`wizard hat`, `crown`, `helmet`), glasses, something in one hand (`sword`, `staff`, `mug`, `book`) |
+| **on an animal** | markings (`stripes`, `spots`, `patches`), `floppy ears`, `long tail`, `green eyes`, `boxy` |
+
+Parts compose, so nothing has to be enumerated in advance: a wizard is a robe,
+a pointed hat and a staff, which means `a wizard with a red hat`, `a cat in a
+top hat` and `a woman with an afro holding a mug` all work without any of them
+existing as an entry.
+
+Occupations are read from the shape of the word rather than from a list. No
+table will ever contain `basketball player`, `taxi driver`, `shopkeeper` and
+`electrician`, but English marks "someone who does a thing" with a handful of
+endings, so all four come out as people — and so does the next one, whatever
+it is. Activities bring their prop with them: a basketball player holds a
+ball, a guitarist a guitar. It says which reading it assumed, and a short
+stoplist keeps `a flower` from becoming a florist. A recognised thing wears its own colours unless you ask
+for others, so `a penguin` is not pink by accident, and a colour attaches to
+whatever it was said about: `a man in a red shirt` has a red shirt, not red
+skin.
+
+If your words name a **thing** rather than a creature — a pizza, a lobster, a
+cactus, a roller coaster — there is no body plan that can draw it, so it falls
+back to a pictograph: Twemoji artwork shipped with the tool, reduced to hard
+pixels and animated through the same motion vocabulary as everything else.
+
+**5,118 words** resolve to a picture, in two layers. A few hundred common ones
+are hand-written, because Unicode's own data records *synonyms* rather than
+which emoji a bare word most likely means — "car" is listed under both 🚗 and
+🚕, and inferring the plain one produced a taxi for "car" and a moon cake for
+"moon". The other ~4,700 come straight from the Unicode CLDR emoji
+annotations, regenerated with `pnpm gen:concepts`, and cover everything nobody
+would sit down and type: stethoscope, roller coaster, jack-o-lantern.
+
+The artwork ships with the tool: **Twemoji**, which is CC-BY 4.0, so a
+pictograph pet is genuinely publishable. Its `pet.json` records the credit, and
+the tool tells you the licence rather than warning you off. For the handful of
+glyphs Twemoji has no file for, it falls back to this machine's emoji font, and
+*that* path is still reported as unknown-licence — text renderers substitute
+per character, silently, so which artwork drew it cannot be determined from
+inside the tool.
+
+If nothing at all lands, it still draws you something, from a hash of the
+text, and **says out loud that the result is invented** rather than passing a
+guess off as what you asked for. It also tells you which of your words it
+ignored. Either way the same description always gives the same pet.
+
+### Three ways in, tried in order
+
+There is no single mechanism that draws everything, so the generator has a
+ladder and tells you which rung answered:
+
+| | covers | cost | look |
+|---|---|---|---|
+| **parts** | creatures, people, roles, occupations | free, offline, instant | house pixel art, fully rigged, real walk cycle |
+| **pictograph** | 5,118 words for everyday *things* | free, offline, instant | the emoji font's art, pixelated; bobs rather than walks; licence unknown |
+| **`--ai`** | anything at all, any phrasing | your own API key | house pixel art when it can, drawn from scratch when it cannot |
+
+Only the third has no ceiling. The first two are finite by construction — the
+honest thing is that they say so rather than guessing.
+
+### `--ai`: no ceiling, on your own key
+
+The reader above understands words, not meaning, and it draws creatures and
+people. Add `--ai` and a model reads the prompt instead:
+
+```sh
+export ANTHROPIC_API_KEY=sk-ant-...        # yours, from console.anthropic.com
+node packages/create-pet/dist/bin.js from-prompt \
+  "a stern librarian in her sixties" --ai \
+  --license CC0-1.0 --author "Your Name" --install
+```
+
+That lifts both ceilings. Any phrasing works, because the model does the
+reading. And any *subject* works, because it can answer in one of two ways:
+
+- **parts** — it fills in the same part spec described above, so the result is
+  a properly rigged character with a real walk cycle and all 80 frames.
+- **draw** — for anything that is not a creature or a person, it returns a
+  small drawing program in the same primitives the hand-drawn pets use. A
+  teapot, a lighthouse, a bowl of ramen: drawn, then animated through the
+  shared motion vocabulary, so it bobs, walks, greys out when a task fails and
+  flashes red on an alarm exactly like every other pet.
+
+It answers in a schema built from the drawing code itself, so it can never
+offer a part that does not exist, and every field and coordinate is validated
+before anything is drawn — a bad answer degrades to the offline reading
+instead of failing. `--model <id>` picks a different model.
+
+**The key is yours.** There is no key in this repository and no shared
+account; `--ai` reads `ANTHROPIC_API_KEY` or `--api-key` from whoever runs it,
+and the usage is billed to them. Without `--ai` nothing is sent anywhere and
+the generator stays free, offline and instant — that remains the default, and
+the in-browser designer is offline-only.
 
 `--install` drops it straight into your pets folder, so it appears in the
 Character menu with no restart.
@@ -307,5 +407,12 @@ one, the two provenance rules, and where to find CC0 art.
 
 ## Licence
 
-MIT for the code. Bundled art is CC0-1.0. Each pet declares its own licence in
-its `pet.json`.
+MIT for the code. The four bundled pets are CC0-1.0. Each pet declares its own
+licence in its `pet.json`.
+
+Pictograph pets — the ones generated for things like a pizza or a lobster — are
+drawn from **[Twemoji](https://github.com/jdecked/twemoji) by Twitter, Inc and
+other contributors, licensed [CC-BY
+4.0](https://creativecommons.org/licenses/by/4.0/)**. Every such pet records
+that credit in its own `pet.json`, so the attribution travels with the pet
+rather than living only here.

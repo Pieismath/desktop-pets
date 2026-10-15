@@ -16,6 +16,7 @@ import {
   type RGBA,
 } from './pixel.js';
 import { paletteFromTraits, type Traits } from './traits.js';
+import { drawGlasses, drawHat, drawHeld, drawPersonFront, drawPersonSide } from './char-person.js';
 
 const CX = 24;
 const FEET_Y = LOGICAL_BASELINE;
@@ -209,12 +210,123 @@ function drawMouth(c: PixelCanvas, X: (v: number) => number, headY: number, pal:
   }
 }
 
+// --------------------------------------------------------------- markings
+
+/**
+ * Paint only where the character already is.
+ *
+ * Markings must never change the silhouette — if they could add pixels the
+ * outline pass would trace round them and a tiger's stripes would grow out of
+ * its back — so every mark is masked by what has already been drawn.
+ */
+function over(c: PixelCanvas, x: number, y: number, w: number, h: number, col: RGBA): void {
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      const px = Math.round(x + i);
+      const py = Math.round(y + j);
+      if (c.get(px, py)) c.px(px, py, col);
+    }
+  }
+}
+
+/** Fixed scatters, so a spotted pet keeps the same spots frame to frame. */
+const SPOTS_FRONT: ReadonlyArray<readonly [number, number]> = [[2, 2], [6, 5], [11, 2], [13, 6], [4, 8], [9, 9]];
+const SPOTS_SIDE: ReadonlyArray<readonly [number, number]> = [[3, 2], [8, 5], [13, 2], [6, 7], [16, 5]];
+
+/** Front view: stripes down the flanks, spots scattered, patches on the extremities. */
+function drawMarkingsFront(
+  c: PixelCanvas,
+  X: (v: number) => number,
+  Y: (v: number) => number,
+  t: Traits,
+  pal: Palette,
+  headY: number,
+  earOff: number,
+  box: { bx: number; by: number; bw: number; bh: number },
+): void {
+  const { bx, by, bw, bh } = box;
+  switch (t.pattern) {
+    case 'stripes':
+      for (const i of [1, 4, 7]) {
+        over(c, X(bx + i), Y(by + 1), 1, bh - 1, pal.out);
+        over(c, X(bx + bw - 1 - i), Y(by + 1), 1, bh - 1, pal.out);
+      }
+      for (const x of [18, 23, 28]) over(c, X(x), headY + 1, 1, 3, pal.out);
+      // the tail is drawn before the body, so this catches whatever is there
+      over(c, X(33), Y(28), 5, 1, pal.out);
+      over(c, X(33), Y(33), 5, 1, pal.out);
+      break;
+    case 'spots':
+      for (const [sx, sy] of SPOTS_FRONT) {
+        over(c, X(bx + sx), Y(by + sy), 2, 2, pal.out);
+      }
+      over(c, X(16), headY + 2, 2, 2, pal.out);
+      over(c, X(30), headY + 2, 2, 2, pal.out);
+      break;
+    case 'patch':
+      // dark ears, a mask across the eyes, dark limbs — panda, raccoon, cow
+      drawEars(c, X, headY, t, { ...pal, main: pal.out, dark: pal.out, light: pal.out }, earOff);
+      over(c, X(16), headY + 4, 6, 6, pal.out);
+      over(c, X(26), headY + 4, 6, 6, pal.out);
+      // one column short of the body so the limbs stay attached to a light coat
+      over(c, X(bx - 3), Y(FEET_Y - 20), 3, 13, pal.out);
+      over(c, X(bx + bw), Y(FEET_Y - 20), 3, 13, pal.out);
+      over(c, X(14), Y(FEET_Y - 6), 20, 6, pal.out);
+      break;
+    case 'none':
+      break;
+  }
+}
+
+/** Side view: the same idea, read from the flank. */
+function drawMarkingsSide(
+  c: PixelCanvas,
+  X: (v: number) => number,
+  Y: (v: number) => number,
+  t: Traits,
+  pal: Palette,
+  headY: number,
+  hx: number,
+  quad: boolean,
+): void {
+  const by = quad ? 29 : 26;
+  const bx = quad ? 14 : 19;
+  const bw = quad ? 21 : 14;
+  switch (t.pattern) {
+    case 'stripes':
+      for (let i = 2; i < bw - 1; i += 4) over(c, X(bx + i), Y(by + 1), 1, 9, pal.out);
+      over(c, X(hx + 4), headY + 1, 1, 3, pal.out);
+      break;
+    case 'spots':
+      for (const [sx, sy] of SPOTS_SIDE) {
+        if (sx < bw - 1) over(c, X(bx + sx), Y(by + sy), 2, 2, pal.out);
+      }
+      break;
+    case 'patch':
+      over(c, X(hx + 3), headY + 3, 5, 5, pal.out);
+      over(c, X(bx), Y(by), 6, 10, pal.out);
+      over(c, X(13), Y(FEET_Y - 7), 26, 7, pal.out);
+      break;
+    case 'none':
+      break;
+  }
+}
+
 // ------------------------------------------------------------------ builder
 
 /** Compose a full PixelCharacter from traits. */
 export function buildCharacter(id: string, traits: Traits): PixelCharacter {
   const pal = paletteFromTraits(traits);
   const shape = BODY[traits.body];
+
+  if (traits.build === 'humanoid') {
+    return {
+      id,
+      palette: pal,
+      draw: (c, pose, p) => drawPersonFront(c, traits, pose, p),
+      drawSide: (c, pose, p) => drawPersonSide(c, traits, pose, p),
+    };
+  }
 
   const draw = (c: PixelCanvas, pose: Pose, p: Palette): void => {
     const dy = Math.round(pose.dy ?? 0);
@@ -257,13 +369,19 @@ export function buildCharacter(id: string, traits: Traits): PixelCharacter {
     if (shape.boxy) c.rect(X(15), headY, 18, 14, p.main);
     else c.round(X(15), headY, 18, 15, p.main);
     drawEars(c, X, headY, traits, p, earOff);
+    drawMarkingsFront(c, X, Y, traits, p, headY, earOff, { bx, by, bw, bh });
     drawMuzzle(c, X, headY, traits, p);
     if (traits.eyes === 'screen') c.rect(X(17), headY + 3, 14, 9, p.eyeDark);
+    // an animal can wear a hat and hold a mug too; both head boxes are centred
+    // on CX, so the person-space hat lands correctly with no shift
+    drawHat(c, X, headY, traits.hat, p);
+    drawHeld(c, X(bx + bw + 1), Y(FEET_Y - 11 + ar), traits.held, p);
 
     c.outline(p.out);
 
     drawInnerEars(c, X, headY, traits, p, earOff);
     drawEyes(c, X, headY, traits, p, pose.eyes ?? 'open');
+    if (traits.glasses) drawGlasses(c, X, headY + 6, p);
     if (traits.muzzle !== 'beak' && traits.muzzle !== 'none') c.rect(X(23), headY + 10, 2, 2, p.out);
     drawMouth(c, X, headY, p, pose.mouth ?? 'smile');
 
@@ -366,7 +484,12 @@ export function buildCharacter(id: string, traits: Traits): PixelCharacter {
         break;
     }
 
+    drawMarkingsSide(c, X, Y, traits, p, headY, hx, quad);
     if (traits.eyes === 'screen') c.rect(X(hx + 5), headY + 3, 8, 7, p.eyeDark);
+    // worn things again, shifted from person head-box space onto this head
+    const toHead = (v: number): number => X(v - 17 + hx - 1);
+    drawHat(c, toHead, headY, traits.hat, p);
+    drawHeld(c, X(hx - 4), Y(FEET_Y - 12), traits.held, p);
 
     c.outline(p.out);
 

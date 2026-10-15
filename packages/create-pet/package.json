@@ -16,7 +16,9 @@
     }
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@desktop-pets/shared": "workspace:*",
+    "@discordapp/twemoji": "^16.0.1",
     "sharp": "^0.35.3"
   }
 }

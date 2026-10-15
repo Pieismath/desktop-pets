@@ -9,6 +9,7 @@ import { SPRITE_STATES, validatePetManifest } from '@desktop-pets/shared';
 import type { PetManifest, SpriteStateName } from '@desktop-pets/shared';
 import { PixelCanvas, resolvePalette, type PixelCharacter } from './pixel.js';
 import { frameFor } from './poses.js';
+import { composeSheetFromImage } from './from-image.js';
 import { composeSheetWebp, type FrameCell } from './sheet.js';
 
 /** Render one 192x208 PNG frame of a character. */
@@ -27,6 +28,19 @@ export async function renderPixelFramePng(
   f.overlay?.(c);
   const { data, width, height } = c.toRawRGBA();
   return sharp(data, { raw: { width, height, channels: 4 } }).png().toBuffer();
+}
+
+/**
+ * Compose a sheet from one already-drawn canvas.
+ *
+ * A drawing with no rig cannot walk, so it is animated the same way an image
+ * pet is — the shared bob, lean, squash and state tints — which is what lets
+ * an arbitrary subject still behave like every other pet in the app.
+ */
+export async function composeSheetFromCanvas(canvas: PixelCanvas): Promise<Buffer> {
+  const { data, width, height } = canvas.toRawRGBA();
+  const png = await sharp(data, { raw: { width, height, channels: 4 } }).png().toBuffer();
+  return composeSheetFromImage(png);
 }
 
 export async function composePixelSheet(character: PixelCharacter): Promise<Buffer> {

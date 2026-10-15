@@ -13,6 +13,7 @@ export const T: RGBA = [0, 0, 0, 0];
 export interface Palette {
   out: RGBA;
   dark: RGBA;
+  /** Coat, or skin on a character that has one. */
   main: RGBA;
   light: RGBA;
   cream: RGBA;
@@ -20,6 +21,10 @@ export interface Palette {
   eyeDark: RGBA;
   /** Iris / detail colour. */
   accent: RGBA;
+  /** Hair, kept out of the coat ramp so it can contrast with skin. */
+  hair: RGBA;
+  /** Clothing. Part of the palette so "failed" and "alarm" recolour it too. */
+  cloth: RGBA;
 }
 
 export const LOGICAL_W = 48;
@@ -64,6 +69,8 @@ const mapPalette = (p: Palette, f: (c: RGBA) => RGBA): Palette => ({
   eyeWhite: f(p.eyeWhite),
   eyeDark: f(p.eyeDark),
   accent: f(p.accent),
+  hair: f(p.hair),
+  cloth: f(p.cloth),
 });
 
 /** "failed": the colour drains out of whatever the character normally is. */
@@ -146,7 +153,8 @@ export class PixelCanvas {
    * near-transparent pixels and optionally recolouring each one.
    */
   blitRaw(
-    data: Buffer | Uint8Array,
+    // ArrayLike so a browser's ImageData (Uint8ClampedArray) works too
+    data: ArrayLike<number>,
     srcW: number,
     srcH: number,
     left: number,

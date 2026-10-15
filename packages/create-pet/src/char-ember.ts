@@ -22,6 +22,9 @@ export const EMBER_PALETTE: Palette = {
   eyeWhite: [255, 250, 242, 255],
   eyeDark: [43, 26, 16, 255],
   accent: [255, 215, 94, 255],
+  // hand-drawn pets wear nothing; these keep the palette total
+  hair: [78, 56, 44, 255],
+  cloth: [122, 132, 148, 255],
 };
 
 function drawEyes(c: PixelCanvas, ox: number, headY: number, style: Pose['eyes'], pal: Palette): void {
