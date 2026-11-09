@@ -1,4 +1,5 @@
 import type { PetAction, PetViewModel, SpriteStateSpec } from '@desktop-pets/shared';
+import { MOTION_ORIGIN, motionFor, motionKeyframeRules } from './motion.js';
 
 interface Rect {
   x: number;
@@ -47,6 +48,11 @@ const $ = <T extends HTMLElement>(id: string): T => {
 
 const sprite = $('sprite');
 const spriteWrap = $('sprite-wrap');
+const motionLayers = {
+  sway: $('sprite-sway'),
+  bob: $('sprite-bob'),
+  squash: $('sprite-squash'),
+} as const;
 const bubble = $('bubble');
 const bubbleText = $('bubble-text');
 const bubbleButtons = $('bubble-buttons');
@@ -71,7 +77,9 @@ function injectKeyframes(specs: readonly SpriteStateSpec[]): void {
       `@keyframes cycle-${n} { from { background-position-x: 0px; } to { background-position-x: -${n * FRAME_W}px; } }`,
     );
   }
+  for (const rule of motionKeyframeRules()) sheet.insertRule(rule);
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+  document.documentElement.style.setProperty('--motion-origin', MOTION_ORIGIN);
 }
 
 function applyLayout(layout: Layout): void {
@@ -103,6 +111,14 @@ function playRow(spec: SpriteStateSpec, iterations: number | 'infinite', onDone?
   void sprite.offsetWidth;
   const count = iterations === 'infinite' ? 'infinite' : String(iterations);
   sprite.style.animation = `cycle-${spec.frames} ${spec.durationMs}ms steps(${spec.frames}) ${count}`;
+  // Restart the motion layers in step with the frame flip, so a jump's squash
+  // lands on the same beat as the drawing that shows it.
+  const motion = motionFor(spec, iterations);
+  for (const [layer, el] of Object.entries(motionLayers)) {
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = motion[layer as keyof typeof motion];
+  }
   if (iterations !== 'infinite') {
     animEndHandler = () => {
       animEndHandler = undefined;

@@ -8,8 +8,19 @@ export interface FrameCell {
   input: Buffer;
 }
 
-/** Compose frame cells onto the locked 8x10 grid and encode lossless WebP. */
-export async function composeSheetWebp(cells: FrameCell[]): Promise<Buffer> {
+/**
+ * Compose frame cells onto the locked 8x10 grid and encode WebP.
+ *
+ * Grid art is encoded losslessly, because a smoothed pixel is a wrong pixel.
+ * Drawn art is not: its paper grain is high-frequency noise that lossless
+ * coding cannot compress, and near-lossless quality costs nothing visible
+ * while saving most of the file.
+ */
+export async function composeSheetWebp(
+  cells: FrameCell[],
+  opts: { lossless?: boolean } = {},
+): Promise<Buffer> {
+  const lossless = opts.lossless ?? true;
   const { width, height, frameWidth, frameHeight, columns, rows } = SPRITE_SHEET;
   for (const c of cells) {
     if (c.row < 0 || c.row >= rows || c.col < 0 || c.col >= columns) {
@@ -34,7 +45,7 @@ export async function composeSheetWebp(cells: FrameCell[]): Promise<Buffer> {
     create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
   })
     .composite(composites)
-    .webp({ lossless: true })
+    .webp(lossless ? { lossless: true } : { quality: 82, alphaQuality: 90, effort: 6 })
     .toBuffer();
 }
 

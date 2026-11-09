@@ -5,6 +5,7 @@
  * animation timing, so all pets behave identically.
  */
 import type { SpriteStateName } from '@desktop-pets/shared';
+import type { Prop } from './props.js';
 import {
   drawCloud,
   drawDots,
@@ -20,6 +21,8 @@ import {
 export interface PixelFrame {
   pose: Pose;
   palette: PaletteKind;
+  /** What the pet is holding or standing under, for whichever renderer. */
+  prop?: Prop;
   overlay?: (c: PixelCanvas) => void;
   /** Mirror after drawing (running-left is running-right flipped). */
   mirror?: boolean;
@@ -89,6 +92,7 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
         },
       };
       if (peak) {
+        f.prop = { kind: 'sparkles', x: 24, y: 12, phase: 0 };
         f.overlay = (c) => {
           drawSparkle(c, 10, 12);
           drawSparkle(c, 38, 8);
@@ -112,6 +116,7 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
           armL: 1,
           armR: 1,
         },
+        prop: { kind: 'cloud', x: 16, y: 1, phase: i, rain: i >= 3 },
         overlay: (c) => drawCloud(c, 16, 1, i >= 3),
       };
     }
@@ -127,6 +132,7 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
           ears: tap ? 0 : -1,
           tail: tap ? 0 : 1,
         },
+        prop: { kind: 'dots', x: 18, y: 5, phase: Math.floor(i / 2) % 3 },
         overlay: (c) => drawDots(c, 18, 5, Math.floor(i / 2) % 3),
       };
     }
@@ -144,6 +150,7 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
           ears: bob,
           tail: i % 3 === 0 ? 1 : 0,
         },
+        prop: { kind: 'gear', x: 36, y: 4, phase: i },
         overlay: (c) => drawGear(c, 36, 4, i),
       };
     }
@@ -153,6 +160,7 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
       return {
         palette: 'normal',
         pose: { eyes: 'wide', mouth: 'oh', ears: -1, armR: -3, tail: 0 },
+        prop: { kind: 'magnifier', x, y: 14, phase: 0 },
         overlay: (c) => drawMagnifier(c, x, 14),
       };
     }
@@ -171,6 +179,7 @@ export function frameFor(state: SpriteStateName, i: number): PixelFrame {
           ears: -2,
           tail: 1,
         },
+        prop: { kind: 'warning', x: 19, y: 1, phase: i, bright },
         overlay: (c) => drawWarning(c, 19, 0, bright),
       };
     }

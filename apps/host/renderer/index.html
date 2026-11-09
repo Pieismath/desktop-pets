@@ -17,7 +17,16 @@
         <div id="bubble-countdown" hidden></div>
       </div>
       <div id="sprite-wrap">
-        <div id="sprite"></div>
+        <!-- Motion layers: rotate, then travel, then scale. One transform per
+             element, so each can run on its own beat. The badge and the DnD
+             marker stay outside them; status should not bob. -->
+        <div id="sprite-sway">
+          <div id="sprite-bob">
+            <div id="sprite-squash">
+              <div id="sprite"></div>
+            </div>
+          </div>
+        </div>
         <div id="badge" hidden></div>
         <div id="dnd" hidden></div>
       </div>

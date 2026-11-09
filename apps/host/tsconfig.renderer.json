@@ -9,5 +9,7 @@
     "types": [],
     "tsBuildInfoFile": "dist/renderer.tsbuildinfo"
   },
-  "include": ["renderer"]
+  "include": ["renderer"],
+  // Tests run from source under vitest; they must not ship in the renderer bundle.
+  "exclude": ["renderer/**/*.test.ts"]
 }

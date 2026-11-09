@@ -8,12 +8,12 @@ import { CAT } from './char-cat.js';
 import { DOG } from './char-dog.js';
 import { EMBER } from './char-ember.js';
 import { ROBOT } from './char-robot.js';
-import type { PixelCharacter } from './pixel.js';
+import type { Character } from './pixelpet.js';
 
 const GENERATOR = 'procedural pixel art, @desktop-pets/create-pet (drawn in code by Claude, Anthropic)';
 
 export interface BundledPet {
-  character: PixelCharacter;
+  character: Character;
   manifest: PetManifest;
   /** The one the app picks when nothing else is chosen. */
   isDefault?: boolean;

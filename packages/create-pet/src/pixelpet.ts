@@ -1,6 +1,11 @@
 /**
- * Turn any PixelCharacter into a complete, conformant pet: 80 frames through
- * the shared pose engine, composed onto the locked 8x10 sheet.
+ * Turn any character into a complete, conformant pet: 80 frames through the
+ * shared pose engine, composed onto the locked 8x10 sheet.
+ *
+ * Two kinds of character arrive here. A DrawnCharacter is vector art, which
+ * is the house style. A PixelCharacter is the older grid art, still used by
+ * the pets built from an image or a prompt. Both answer the same poses, so
+ * everything downstream, and every pet in the app, behaves identically.
  */
 import sharp from 'sharp';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -8,11 +13,50 @@ import path from 'node:path';
 import { SPRITE_STATES, validatePetManifest } from '@desktop-pets/shared';
 import type { PetManifest, SpriteStateName } from '@desktop-pets/shared';
 import { PixelCanvas, resolvePalette, type PixelCharacter } from './pixel.js';
+import { resolveHues, type DrawnCharacter } from './draw.js';
+import { renderScene } from './paper.js';
+import { propShapes } from './props.js';
 import { frameFor } from './poses.js';
 import { composeSheetFromImage } from './from-image.js';
 import { composeSheetWebp, type FrameCell } from './sheet.js';
 
-/** Render one 192x208 PNG frame of a character. */
+export type Character = PixelCharacter | DrawnCharacter;
+
+const isDrawn = (c: Character): c is DrawnCharacter => 'front' in c;
+
+/** One sheet of paper per pet: the grain must not crawl between frames. */
+function seedOf(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) % 100000;
+}
+
+/** Render one 192x208 PNG frame of a drawn character. */
+export async function renderDrawnFramePng(
+  character: DrawnCharacter,
+  state: SpriteStateName,
+  i: number,
+): Promise<Buffer> {
+  const f = frameFor(state, i);
+  const hues = resolveHues(character.hues, f.palette);
+  const seed = seedOf(character.id);
+  const shapes = f.side ? character.side(f.pose, hues) : character.front(f.pose, hues);
+
+  if (!f.mirror) {
+    if (f.prop) shapes.push(...propShapes(f.prop));
+    return renderScene({ shapes, hues }, seed);
+  }
+  // running-left is running-right flipped, and a prop is never flipped with it
+  const flipped = await sharp(await renderScene({ shapes, hues }, seed)).flop().png().toBuffer();
+  if (!f.prop) return flipped;
+  const prop = await renderScene({ shapes: propShapes(f.prop), hues }, seed + 11);
+  return sharp(flipped).composite([{ input: prop }]).png().toBuffer();
+}
+
+/** Render one 192x208 PNG frame of a grid character. */
 export async function renderPixelFramePng(
   character: PixelCharacter,
   state: SpriteStateName,
@@ -30,6 +74,17 @@ export async function renderPixelFramePng(
   return sharp(data, { raw: { width, height, channels: 4 } }).png().toBuffer();
 }
 
+/** Render one frame of whichever kind of character this is. */
+export function renderFramePng(
+  character: Character,
+  state: SpriteStateName,
+  i: number,
+): Promise<Buffer> {
+  return isDrawn(character)
+    ? renderDrawnFramePng(character, state, i)
+    : renderPixelFramePng(character, state, i);
+}
+
 /**
  * Compose a sheet from one already-drawn canvas.
  *
@@ -43,19 +98,19 @@ export async function composeSheetFromCanvas(canvas: PixelCanvas): Promise<Buffe
   return composeSheetFromImage(png);
 }
 
-export async function composePixelSheet(character: PixelCharacter): Promise<Buffer> {
+export async function composePixelSheet(character: Character): Promise<Buffer> {
   const cells: FrameCell[] = [];
   for (const state of SPRITE_STATES) {
     for (let col = 0; col < state.frames; col++) {
-      cells.push({ row: state.row, col, input: await renderPixelFramePng(character, state.name, col) });
+      cells.push({ row: state.row, col, input: await renderFramePng(character, state.name, col) });
     }
   }
-  return composeSheetWebp(cells);
+  return composeSheetWebp(cells, { lossless: !isDrawn(character) });
 }
 
 /** Write a complete pet (sheet + validated manifest) into `outDir`. */
 export async function generatePixelPet(
-  character: PixelCharacter,
+  character: Character,
   manifest: PetManifest,
   outDir: string,
 ): Promise<{ sheetBytes: number }> {

@@ -27,6 +27,21 @@ body {
   cursor: grab;
 }
 
+/*
+ * The motion layers sit between the wrap and the sprite and carry nothing but
+ * a transform each. They are absolutely positioned to the wrap's own box so
+ * the sprite's position is unchanged and the pivot stays on the pet's feet
+ * rather than on the overflowing 208px frame.
+ */
+#sprite-sway,
+#sprite-bob,
+#sprite-squash {
+  position: absolute;
+  inset: 0;
+  transform-origin: var(--motion-origin, 50% 88.46%);
+  will-change: transform;
+}
+
 #sprite {
   width: 192px;
   height: 208px;
@@ -203,5 +218,19 @@ body.alarm #sprite-wrap {
   }
   80% {
     transform: translateX(3px);
+  }
+}
+
+/*
+ * Someone who has asked for less movement gets the frame flip and nothing
+ * else: the pet still changes state and still reads clearly, it just stops
+ * breathing. Targeting the layers alone leaves the sprite itself untouched.
+ */
+@media (prefers-reduced-motion: reduce) {
+  #sprite-sway,
+  #sprite-bob,
+  #sprite-squash {
+    animation: none !important;
+    transform: none !important;
   }
 }
